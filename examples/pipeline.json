@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "expected_columns": ["customer_id", "age", "income", "city", "order_date", "quantity"],
+  "roles": {"customer_id": "id", "age": "numeric", "income": "numeric", "city": "category", "order_date": "datetime", "quantity": "numeric"},
+  "steps": [
+    {"op": "normalize_text", "columns": ["city"], "case": "lower"},
+    {"op": "cast", "columns": ["income"], "dtype": "numeric", "errors": "coerce"},
+    {"op": "cast", "columns": ["order_date"], "dtype": "datetime", "format": "%d/%m/%Y", "errors": "coerce"},
+    {"op": "drop_duplicates", "columns": [], "keep": "first"},
+    {"op": "range", "columns": ["age"], "min": 0, "max": 120, "action": "missing"},
+    {"op": "fill_missing", "columns": ["age", "income"], "strategy": "median"},
+    {"op": "outliers", "columns": ["income"], "method": "clip", "factor": 1.5}
+  ]
+}
+

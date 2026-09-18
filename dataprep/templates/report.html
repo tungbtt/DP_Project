@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ name }} · Data Prep Studio</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; } body { margin: 0; background: #f3f6fa; color: #172b4d; font: 15px/1.6 Arial,sans-serif; }
+    header { background: #102a43; color: white; padding: 46px max(5vw,24px); }
+    header p { color: #bed7e6; } h1 { margin: 8px 0; font-size: 34px; overflow-wrap: anywhere; }
+    main { max-width: 1250px; margin: auto; padding: 30px 24px; }
+    nav { display: flex; gap: 18px; flex-wrap: wrap; } a { color: #83e0d6; }
+    section, .card { background: white; border: 1px solid #dce4ed; border-radius: 12px; padding: 22px; margin-bottom: 22px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 16px; }
+    .card b { display: block; font-size: 28px; color: #087f8c; } .card { margin: 0; }
+    .scroll { overflow: auto; } table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { padding: 10px; border-bottom: 1px solid #e5ebf1; text-align: left; vertical-align: top; }
+    th { background: #eef4f7; } pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f3f6fa; padding: 15px; }
+    .muted { color: #53687d; } .figure { margin: 15px 0; } summary { cursor: pointer; font-weight: bold; }
+    @media print { header { background: white; color: black; } nav { display: none; } section { break-inside: avoid; } }
+  </style>
+  <script>{{ plotly_js | safe }}</script>
+</head>
+<body>
+<header>
+  <span>DATA PREP STUDIO · EDA &amp; CLEANING REPORT</span>
+  <h1>{{ name }}</h1>
+  <p>Phiên bản {{ version }} · {{ timestamp }} · Báo cáo tương tác hoạt động offline</p>
+  <nav><a href="#overview">Tổng quan</a><a href="#quality">Chất lượng</a><a href="#charts">Biểu đồ</a><a href="#pipeline">Quy trình</a></nav>
+</header>
+<main>
+  <section id="overview">
+    <h2>Tổng quan &amp; so sánh trước–sau</h2>
+    <div class="cards">
+      <div class="card">Dòng dữ liệu sau xử lý<b>{{ after.overview.rows }}</b></div>
+      <div class="card">Số cột<b>{{ after.overview.columns }}</b></div>
+      <div class="card">Ô thiếu<b>{{ '%.2f' | format(after.overview.missing_pct) }}%</b></div>
+      <div class="card">Bản sao dư<b>{{ after.overview.duplicate_rows }}</b></div>
+    </div>
+    <p class="muted">Thống kê trên toàn bộ dữ liệu đã nạp. Tỷ lệ thiếu = số ô thiếu / tổng số ô của từng phiên bản. Giảm số lỗi bằng cách xóa dữ liệu không tự động chứng minh chất lượng tốt hơn.</p>
+    <div class="scroll"><table><thead><tr><th>Chỉ số</th><th>Trước</th><th>Sau</th><th>Chênh lệch</th></tr></thead><tbody>
+    {% for row in comparison %}<tr>{% for value in row.values() %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  <section id="quality"><h2>Chất lượng dữ liệu</h2>
+    {% for title, profile in [('Trước xử lý', before), ('Sau xử lý', after)] %}
+    <h3>{{ title }}</h3>
+    {% if profile.issues %}<div class="scroll"><table><thead><tr><th>Cột</th><th>Vấn đề</th><th>Số lượng</th><th>Đề xuất</th></tr></thead><tbody>
+    {% for issue in profile.issues %}<tr><td>{{ issue.column }}</td><td>{{ issue.message }}</td><td>{{ issue.count }}</td><td>{{ issue.suggestion }}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p>Không phát hiện vấn đề theo các quy tắc đã triển khai.</p>{% endif %}
+    {% endfor %}
+    <p class="muted">Ngoại lệ IQR là cảnh báo thống kê, không khẳng định dữ liệu sai. Tương quan không chứng minh quan hệ nhân quả.</p>
+  </section>
+  <section><h2>Thống kê từng cột</h2>
+    {% for title, profile in [('Trước xử lý', before), ('Sau xử lý', after)] %}
+    <h3>{{ title }}</h3>
+    {% for col in profile.columns %}<details><summary>{{ col.name }} · {{ col.role }} · {{ col.dtype }} · {{ col.missing }} thiếu</summary>
+      <p>Không thiếu: {{ col.valid }} · Giá trị khác nhau: {{ col.unique }} · Tỷ lệ thiếu: {{ '%.2f'|format(col.missing_pct) }}%</p>
+      <div class="scroll"><table>{% for key, value in col.stats.items() %}<tr><th>{{ key }}</th><td>{{ value }}</td></tr>{% endfor %}</table></div>
+    </details>{% endfor %}{% endfor %}
+  </section>
+  <section id="charts"><h2>Khám phá dữ liệu</h2>
+    <p class="muted">Báo cáo giới hạn phân phối ở 8 cột đầu không phải ID/ignore mỗi phiên bản; tương quan tối đa 30 cột số, loại ID. Các cột khác vẫn có thống kê ở trên.</p>
+    {% for section in sections %}<h3>{{ section.title }}</h3>{% for fig in section.figures %}<div class="figure">{{ fig | safe }}</div>{% endfor %}{% endfor %}
+    <h3>Phân phối trước–sau</h3><p class="muted">Tối đa 6 cột số; cùng cách chia bin để so sánh số lượng bản ghi.</p>
+    {% for fig in comparisons %}<div class="figure">{{ fig | safe }}</div>{% endfor %}
+  </section>
+  <section id="pipeline"><h2>Nhật ký xử lý</h2>
+    {% if log %}<div class="scroll"><table><thead><tr><th>Bước</th><th>Thao tác</th><th>Dòng trước → sau</th><th>Ô đổi trên dòng/cột còn lại</th><th>Cột đã xóa</th></tr></thead><tbody>
+    {% for item in log %}<tr><td>{{ item.step }}</td><td>{{ item.operation }}</td><td>{{ item.rows_before }} → {{ item.rows_after }}</td><td>{{ item.changed_cells_retained }}</td><td>{{ item.removed_columns }}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p>Chưa áp dụng biến đổi. Đây là báo cáo EDA dữ liệu gốc.</p>{% endif %}
+    <details><summary>Cấu hình pipeline</summary><pre>{{ pipeline }}</pre></details>
+    <details><summary>Thông tin nguồn</summary><pre>{{ metadata }}</pre></details>
+    <details><summary>Thống kê JSON đầy đủ</summary><pre>{{ stats_json }}</pre></details>
+  </section>
+  <p class="muted">Báo cáo có thể chứa nhãn và giá trị thống kê từ dữ liệu nguồn. Xem lại nội dung trước khi chia sẻ.</p>
+</main>
+</body></html>

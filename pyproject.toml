@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-prep-studio"
+version = "1.0.0"
+description = "Explainable tabular data profiling, cleaning and offline Plotly reports"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas>=2.2,<3.1", "numpy>=1.26,<3", "plotly>=6,<8",
+  "streamlit>=1.40,<2", "jinja2>=3.1,<4", "openpyxl>=3.1,<4"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
+parquet = ["pyarrow>=16"]
+
+[project.scripts]
+data-prep = "dataprep.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["dataprep*"]
+
+[tool.setuptools.package-data]
+dataprep = ["templates/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
