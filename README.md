@@ -2,13 +2,15 @@
 
 Đồ án Python: tự động khám phá dữ liệu dạng bảng, làm sạch có giải thích và xuất báo cáo HTML tương tác bằng Plotly.
 
+Phiên bản 1.1 bổ sung tab **Học máy**: chia train/validation/test, chuẩn hóa, mã hóa và xuất bộ tiền xử lý đã fit. Xem [hướng dẫn ML](docs/MACHINE_LEARNING.md) và [deploy từ GitHub lên Streamlit Cloud](docs/DEPLOYMENT.md).
+
 ## Cài đặt và chạy
 
 Yêu cầu Python 3.10 trở lên (khuyến nghị 3.11/3.12). Mở terminal tại thư mục project:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -X utf8 -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m streamlit run app.py --server.address 127.0.0.1
 ```
 
@@ -17,8 +19,8 @@ Sau đó mở `http://localhost:8501`. Không cần kích hoạt môi trường 
 Để dùng đúng phiên bản thư viện đã kiểm tra, cài `requirements-lock.txt` trước bước cài project:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -X utf8 -m pip install -r requirements-lock.txt
+.\.venv\Scripts\python.exe -X utf8 -m pip install -e .
 ```
 
 macOS/Linux:
@@ -39,6 +41,7 @@ Parquet là tùy chọn: `python -m pip install -e ".[parquet]"` trong môi trư
 4. Thêm các bước ở **Làm sạch**, hoặc nạp `examples/pipeline.json` khi dùng dữ liệu mẫu.
 5. Nhấn **Xem trước toàn bộ quy trình**, kiểm tra dữ liệu và nhật ký, rồi **Áp dụng kết quả đã xem trước**.
 6. Xem **So sánh**, sau đó tạo và tải báo cáo ở **Xuất kết quả**.
+7. Nếu chuẩn bị cho mô hình, mở **6. Học máy**, chọn target/features, phương pháp chuẩn hóa và chia tập, rồi tải gói ML. Luồng này dùng dữ liệu gốc; không dùng thống kê đã fit toàn bộ dữ liệu ở tab Làm sạch.
 
 Sửa pipeline hoặc vai trò cột sẽ vô hiệu hóa kết quả cũ để tránh xuất báo cáo sai cấu hình. Mỗi lần chạy đều bắt đầu từ bản gốc. Nếu một bước lỗi, không xuất kết quả chạy dở. Đóng phiên làm việc sẽ mất dữ liệu đang giữ trong bộ nhớ; hãy tải ZIP/pipeline để lưu lại.
 
@@ -63,6 +66,7 @@ Bỏ `--pipeline` để chỉ chạy EDA. Thêm `--table ten_bang` cho SQLite nh
 - Chuẩn hóa chuỗi, ánh xạ nhãn, chuyển số/ngày, điền thiếu, xóa dòng thiếu, loại trùng, xóa cột, IQR và miền giá trị.
 - Nhật ký từng bước; so sánh trước–sau; pipeline JSON có thể sửa, sắp xếp và tái sử dụng.
 - Báo cáo HTML offline nhúng Plotly.js một lần; nội dung văn bản nguồn được escape trong template.
+- Chuẩn bị ML: StandardScaler/MinMaxScaler/RobustScaler; one-hot/ordinal; train/validation/test; imputer/encoder/scaler fit chỉ trên train, dùng lại cho dữ liệu mới.
 
 ## Kiến trúc
 
@@ -74,6 +78,8 @@ dataprep/pipeline.py   Biến đổi có thứ tự, validation, nhật ký
 dataprep/charts.py     Biểu đồ Plotly, tổng hợp/lấy mẫu có ghi rõ
 dataprep/report.py     HTML và ZIP
 dataprep/cli.py        Giao diện dòng lệnh dùng cùng lõi xử lý
+dataprep/ml.py         Chia tập, chuẩn hóa, mã hóa và artifact cho ML
+dataprep/ml_ui.py      Giao diện cấu hình dữ liệu học máy
 dataprep/templates/    Mẫu báo cáo HTML
 examples/             Dữ liệu lỗi chủ động và pipeline minh họa
 tests/                Kiểm tra dữ liệu, CLI và luồng Streamlit
@@ -99,7 +105,11 @@ Kiểm tra bao gồm bảo toàn ID, dữ liệu lỗi, JSON lồng, SQLite ch�
 - Biểu đồ phân phối được tổng hợp từ toàn bộ giá trị hợp lệ. Scatter lấy mẫu tối đa 5.000 cặp, seed=42. HTML chỉ vẽ phân phối 8 cột đầu phù hợp / phiên bản, tương quan 30 cột, so sánh 6 cột; thống kê vẫn có cho mọi cột.
 - CSV không lưu đầy đủ dtype; `schema.json` để đối chiếu. Giá trị thiếu và chuỗi rỗng có thể không phân biệt được khi xuất CSV.
 - Report có thể chứa giá trị dữ liệu trong nhãn/tần suất, chưa có tính năng che dữ liệu nhạy cảm.
-- Chưa bao gồm mô hình ML, tự học luật nghiệp vụ, AI/LLM, server nhiều người dùng hoặc cơ sở dữ liệu lưu lịch sử.
+- Đã chuẩn bị dữ liệu ML có giám sát; chưa huấn luyện/tối ưu mô hình, chia theo nhóm, tự học luật nghiệp vụ, AI/LLM hoặc cơ sở dữ liệu lưu lịch sử.
+
+## Triển khai web từ GitHub
+
+Ứng dụng có thể chạy trên Streamlit Community Cloud từ repo `tungbtt/DP_Project`, branch `master`, file `app.py`, Python 3.12. GitHub Pages chỉ đăng được báo cáo HTML tĩnh. Xem [DEPLOYMENT.md](docs/DEPLOYMENT.md) để triển khai bằng tài khoản của bạn; cấu hình GitHub Actions đã có để kiểm tra trên Ubuntu và Windows khi push/PR.
 
 ## Tài liệu tham khảo
 

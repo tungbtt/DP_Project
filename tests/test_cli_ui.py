@@ -73,3 +73,19 @@ def test_streamlit_demo_preview_apply_export():
     assert not app.exception
     assert "result" not in app.session_state
     assert "artifacts" not in app.session_state
+
+
+def test_streamlit_ml_preparation_and_stale_export_invalidation():
+    app = AppTest.from_file(str(ROOT / "app.py"), default_timeout=30).run()
+    button(app, "Dùng dữ liệu mẫu").click().run()
+    assert not app.exception
+    button(app, "Chuẩn bị dữ liệu ML").click().run()
+    assert not app.exception
+    assert "ml_result" in app.session_state
+    assert app.session_state["ml_result"].manifest["fit_partition"] == "train"
+    assert app.session_state["ml_bundle"]
+    scaler = next(s for s in app.selectbox if s.label == "Chuẩn hóa cột số")
+    scaler.select("robust").run()
+    assert not app.exception
+    assert "ml_result" not in app.session_state
+    assert "ml_bundle" not in app.session_state

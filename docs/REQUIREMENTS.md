@@ -14,6 +14,7 @@ Thư viện Python và giao diện giúp khám phá, đánh giá chất lượng
 6. Tạo/sắp xếp/xóa bước pipeline; xem trước đầy đủ trên bản sao.
 7. Áp dụng pipeline, kiểm tra tác động và vấn đề còn tồn tại.
 8. Xuất CSV, HTML, ZIP, schema, metadata, nhật ký và pipeline tái sử dụng.
+9. Chuẩn bị dữ liệu học máy: chọn target/features; chia ngẫu nhiên/phân tầng/thời gian; điền thiếu, chuẩn hóa và mã hóa chỉ fit trên train; xuất các tập và fitted preprocessor.
 
 ## Nguyên tắc chất lượng
 
@@ -30,4 +31,4 @@ Nạp `examples/sales_dirty.csv`, kiểm tra ID `001`, tỷ lệ thiếu, thu nh
 
 ## Mở rộng sau
 
-Kết nối SQL ngoài SQLite; che dữ liệu nhạy cảm; rule nhiều cột; dữ liệu lớn theo chunk; so sánh các file theo thời gian; chuẩn bị ML với fit/transform trên tập train. Các tính năng này không nằm trong bản hiện tại.
+Kết nối SQL ngoài SQLite; che dữ liệu nhạy cảm; rule nhiều cột; dữ liệu lớn theo chunk; so sánh các file theo thời gian; chia ML theo nhóm và huấn luyện mô hình. Các tính năng này không nằm trong bản hiện tại.

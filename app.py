@@ -16,6 +16,7 @@ from dataprep.charts import (
 )
 from dataprep.errors import DataPrepError
 from dataprep.io import LoadOptions, load_data, sqlite_tables
+from dataprep.ml_ui import render_ml
 from dataprep.pipeline import OPERATIONS, parse_config, run_pipeline
 from dataprep.profile import ROLES, compare_profiles, profile_data, resolve_roles
 from dataprep.report import export_bundle
@@ -40,7 +41,7 @@ st.markdown(
 
 
 def clear_results():
-    for key in ("preview", "preview_config", "result", "artifacts"):
+    for key in ("preview", "preview_config", "result", "artifacts", "ml_result", "ml_bundle", "ml_signature"):
         st.session_state.pop(key, None)
 
 
@@ -156,7 +157,9 @@ metrics[0].metric("Dòng dữ liệu", f"{len(original):,}")
 metrics[1].metric("Số cột", len(original.columns))
 metrics[2].metric("Ô thiếu", f"{original.isna().sum().sum():,}")
 metrics[3].metric("Bản sao dư", f"{original.duplicated().sum():,}")
-tabs = st.tabs(["1. Dữ liệu", "2. Khám phá EDA", "3. Làm sạch", "4. So sánh", "5. Xuất kết quả"])
+tabs = st.tabs(
+    ["1. Dữ liệu", "2. Khám phá EDA", "3. Làm sạch", "4. So sánh", "5. Xuất kết quả", "6. Học máy"]
+)
 
 with tabs[0]:
     st.subheader("Xem trước dữ liệu gốc")
@@ -435,3 +438,6 @@ with tabs[4]:
             use_container_width=True,
         )
     st.download_button("Lưu pipeline đang cấu hình", dumps(config), "pipeline.json", "application/json")
+
+with tabs[5]:
+    render_ml(original, current_roles(original), st.session_state.dataset_key)

@@ -17,6 +17,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="EDA + cleaning + offline Plotly report")
     parser.add_argument("source", type=Path)
     parser.add_argument("--pipeline", type=Path)
+    parser.add_argument(
+        "--ml-config", type=Path, help="Prepare ML data from original source with a JSON ML config"
+    )
     parser.add_argument("--output", type=Path, default=Path("outputs"))
     parser.add_argument("--encoding", default="utf-8-sig")
     parser.add_argument("--delimiter")
@@ -29,6 +32,10 @@ def main(argv=None):
     parser.add_argument("--overwrite", action="store_true", help="Replace existing output artifacts")
     args = parser.parse_args(argv)
     try:
+        if args.pipeline and args.ml_config:
+            raise DataPrepError(
+                "Dùng --pipeline cho EDA hoặc --ml-config cho ML; không chuẩn hóa ML trên kết quả fit toàn bộ dữ liệu."
+            )
         names = [
             "report.html",
             "cleaned_data.csv",
@@ -38,6 +45,8 @@ def main(argv=None):
             "source_metadata.json",
             "result.zip",
         ]
+        if args.ml_config:
+            names = ["ml_ready.zip", "ml_manifest.json", "ml_config.json", "source_metadata.json"]
         targets = [args.output / name for name in names]
         if not args.overwrite and any(path.exists() for path in targets):
             raise DataPrepError("Đầu ra đã tồn tại; chọn thư mục mới hoặc dùng --overwrite.")
@@ -56,6 +65,21 @@ def main(argv=None):
                 infer_numeric=not args.no_infer_numeric,
             ),
         )
+        if args.ml_config:
+            from .ml import MLConfig, export_ml_bundle, prepare_ml
+
+            ml_config = MLConfig.from_json(args.ml_config.read_text(encoding="utf-8-sig"))
+            ml_result = prepare_ml(dataset.frame, ml_config)
+            bundle = export_ml_bundle(ml_result)
+            args.output.mkdir(parents=True, exist_ok=True)
+            (args.output / "ml_ready.zip").write_bytes(bundle)
+            (args.output / "ml_manifest.json").write_text(dumps(ml_result.manifest), encoding="utf-8")
+            (args.output / "ml_config.json").write_text(dumps(ml_result.manifest["config"]), encoding="utf-8")
+            (args.output / "source_metadata.json").write_text(dumps(dataset.metadata), encoding="utf-8")
+            print(
+                f"ML OK: {ml_result.manifest['split_rows']} | {len(ml_result.feature_names)} features | {args.output.resolve()}"
+            )
+            return 0
         config = (
             parse_config(args.pipeline.read_text(encoding="utf-8-sig"))
             if args.pipeline
