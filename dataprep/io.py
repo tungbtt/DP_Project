@@ -42,7 +42,7 @@ class Dataset:
 
 def is_id_name(name: str) -> bool:
     name = name.lower().strip()
-    return bool(re.search(r"(^id$|_id$|^id_|^mã|^ma_|code$|phone|postal|zip)", name))
+    return bool(re.search(r"(^id$|_id$|^id_|^sbd$|^mã|^ma_|code$|phone|postal|zip)", name))
 
 
 def _validate(frame):

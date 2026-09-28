@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-prep-studio"
-version = "1.1.0"
+version = "1.2.0"
 description = "Explainable tabular data profiling, cleaning and offline Plotly reports"
 readme = "README.md"
 requires-python = ">=3.10"

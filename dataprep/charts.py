@@ -1,4 +1,4 @@
-"""Plotly visualizations with explicit sampling and comparable before/after bins."""
+"""Plotly visualizations over the complete loaded dataset."""
 
 import numpy as np
 import pandas as pd
@@ -8,8 +8,6 @@ import plotly.graph_objects as go
 from .profile import correlation, numeric_values, resolve_roles
 
 COLORS = ["#087f8c", "#ef8a47", "#5562b5", "#b54f79"]
-MAX_POINTS = 5000
-MAX_CORRELATION_ROWS = 100_000
 
 
 def style(fig, title):
@@ -65,10 +63,10 @@ def distribution(frame, column, role):
             go.Figure(go.Scatter(x=counts.index, y=counts.values, mode="lines+markers")),
             f"{column} · số bản ghi theo ngày",
         )
-    counts = s.dropna().astype(str).value_counts().head(20).sort_values()
+    counts = s.dropna().astype(str).value_counts().sort_values()
     return style(
         go.Figure(go.Bar(x=counts.values, y=counts.index, orientation="h", marker_color=COLORS[0])),
-        f"{column} · top 20 giá trị",
+        f"{column} · toàn bộ {len(counts):,} giá trị phân biệt",
     )
 
 
@@ -95,8 +93,7 @@ def box_chart(frame, column):
 
 
 def correlation_chart(frame, roles=None, method="pearson"):
-    # Bound the calculation itself, not only its rendered result.
-    matrix = correlation(frame, roles, method, max_rows=MAX_CORRELATION_ROWS, max_columns=30)
+    matrix = correlation(frame, roles, method)
     if len(matrix) < 2:
         return None
     fig = go.Figure(
@@ -111,18 +108,17 @@ def correlation_chart(frame, roles=None, method="pearson"):
             hovertemplate="%{x} / %{y}: %{z:.3f}<extra></extra>",
         )
     )
-    used, total = matrix.attrs["rows_used"], matrix.attrs["total_rows"]
-    scope = f"mẫu {used:,}/{total:,} dòng, seed=42" if used < total else f"toàn bộ {total:,} dòng"
-    return style(fig, f"Tương quan {method} · {scope} · tối đa 30 cột · ≥3 cặp hợp lệ")
+    return style(
+        fig,
+        f"Tương quan {method} · toàn bộ {matrix.attrs['total_rows']:,} dòng "
+        f"× {len(matrix):,} cột số · ≥3 cặp hợp lệ",
+    )
 
 
 def scatter_chart(frame, x, y):
     values = pd.DataFrame({x: numeric_values(frame[x]), y: numeric_values(frame[y])}).dropna()
-    total = len(values)
-    if total > MAX_POINTS:
-        values = values.sample(MAX_POINTS, random_state=42)
-    fig = px.scatter(values, x=x, y=y, render_mode="svg", opacity=0.6)
-    return style(fig, f"{x} × {y} · {len(values):,}/{total:,} cặp hợp lệ (seed=42)")
+    fig = px.scatter(values, x=x, y=y, render_mode="webgl", opacity=0.45)
+    return style(fig, f"{x} × {y} · toàn bộ {len(values):,} cặp hợp lệ · WebGL")
 
 
 def comparison_chart(before, after, column):
@@ -149,12 +145,12 @@ def comparison_chart(before, after, column):
     return style(fig, f"{column} · trước/sau, cùng khoảng chia · số bản ghi")
 
 
-def report_charts(frame, roles=None, max_columns=8):
+def report_charts(frame, roles=None):
     resolved = resolve_roles(frame, roles)
     figures = [missing_chart(frame)]
     corr = correlation_chart(frame, resolved)
     if corr is not None:
         figures.append(corr)
-    selected = [c for c in frame if resolved[c] not in ("id", "ignore")][:max_columns]
+    selected = [c for c in frame if resolved[c] not in ("id", "ignore")]
     figures.extend(distribution(frame, c, resolved[c]) for c in selected)
     return figures

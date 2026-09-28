@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 import dataprep.io as ingestion
-from dataprep.charts import correlation_chart
+from dataprep.charts import correlation_chart, distribution, report_charts, scatter_chart
 from dataprep.errors import DataPrepError
 from dataprep.pipeline import changed_cells, run_pipeline
 from dataprep.profile import correlation, resolve_roles
@@ -60,7 +60,7 @@ def test_explicit_roles_skip_inference(monkeypatch):
     assert resolve_roles(pd.DataFrame({"x": [1]}), {"x": "numeric"}) == {"x": "numeric"}
 
 
-def test_correlation_bounds_input_before_calculation(monkeypatch):
+def test_optional_correlation_bounds_remain_deterministic(monkeypatch):
     frame = pd.DataFrame({f"x{i}": range(100) for i in range(40)})
     original_corr = pd.DataFrame.corr
     seen = []
@@ -75,10 +75,35 @@ def test_correlation_bounds_input_before_calculation(monkeypatch):
     pd.testing.assert_frame_equal(first, second)
     assert seen == [(10, 3), (10, 3)]
     assert first.attrs == {"rows_used": 10, "total_rows": 100}
-    monkeypatch.setattr("dataprep.charts.MAX_CORRELATION_ROWS", 10)
+
+
+def test_charts_use_all_rows_columns_and_categories(monkeypatch):
+    frame = pd.DataFrame({f"x{i}": range(100) for i in range(40)})
+    original_corr = pd.DataFrame.corr
+    seen = []
+
+    def spy(self, *args, **kwargs):
+        seen.append(self.shape)
+        return original_corr(self, *args, **kwargs)
+
+    monkeypatch.setattr(pd.DataFrame, "corr", spy)
     chart = correlation_chart(frame)
-    assert seen[-1] == (10, 30)
-    assert "mẫu 10/100" in chart.layout.title.text
+    assert seen == [(100, 40)]
+    assert "toàn bộ 100 dòng × 40 cột số" in chart.layout.title.text
+
+    scatter = scatter_chart(frame, "x0", "x1")
+    assert len(scatter.data[0].x) == 100
+    assert scatter.data[0].type == "scattergl"
+    assert "toàn bộ 100 cặp" in scatter.layout.title.text
+
+    categories = pd.DataFrame({"kind": [f"c{i}" for i in range(25)]})
+    bars = distribution(categories, "kind", "category")
+    assert len(bars.data[0].y) == 25
+    assert "toàn bộ 25 giá trị" in bars.layout.title.text
+
+    report_frame = pd.DataFrame({"id": range(10), "a": range(10), "b": range(10)})
+    figures = report_charts(report_frame, {"id": "id", "a": "numeric", "b": "numeric"})
+    assert len(figures) == 4  # missing, correlation, and both non-ID distributions
 
 
 def test_change_count_across_chunk_boundary_and_removed_rows():
@@ -110,3 +135,11 @@ def test_shallow_snapshots_preserve_each_step_and_csv_zip():
         restored = pd.read_csv(io.BytesIO(csv))
         assert restored.x.tolist() == [1, 2, 3]
         assert restored.s.tolist() == ["a", "b", "c"]
+
+
+def test_report_compares_every_numeric_column():
+    frame = pd.DataFrame({f"x{i}": [1.0, 2.0, 3.0] for i in range(8)})
+    result = run_pipeline(frame, {"version": 1, "steps": []})
+    html, _ = export_bundle(frame, result)
+    # 2 × (missing + correlation + 8 distributions) + 8 comparisons.
+    assert html.count("Plotly.newPlot") == 28

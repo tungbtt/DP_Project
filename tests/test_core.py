@@ -92,6 +92,7 @@ def test_profile_counts_and_id_exclusion():
     matrix = correlation(frame)
     assert "id" not in matrix
     assert matrix.loc["x", "y"] == pytest.approx(1)
+    assert profile_data(pd.DataFrame({"sbd": ["01000001"]}))["roles"]["sbd"] == "id"
 
 
 def test_atomic_failure_and_original_unchanged():

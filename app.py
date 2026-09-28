@@ -185,7 +185,7 @@ if len(original) > 200_000:
     st.info(
         f"Bảng đang chiếm khoảng {base_profile['overview']['memory_bytes'] / 1024**2:,.0f} MiB trong RAM. "
         "Làm sạch, học máy và xuất kết quả cần thêm bộ nhớ. Thống kê dùng toàn bộ bảng; "
-        "tương quan dùng tối đa 100.000 dòng, scatter tối đa 5.000 điểm."
+        "mọi biểu đồ dùng toàn bộ dữ liệu hợp lệ nên có thể mất thời gian với bảng lớn."
     )
 tabs = st.tabs(
     ["1. Dữ liệu", "2. Khám phá EDA", "3. Làm sạch", "4. So sánh", "5. Xuất kết quả", "6. Học máy"]
@@ -255,7 +255,9 @@ with tabs[1]:
     figure = correlation_chart(data, mapping, method)
     if figure is not None:
         st.plotly_chart(figure, use_container_width=True, key="correlation")
-        st.caption("Tính trên các cặp giá trị hợp lệ, ít nhất 3 cặp. Tương quan không chứng minh nhân quả.")
+        st.caption(
+            "Tính trên toàn bộ các cặp giá trị hợp lệ, ít nhất 3 cặp. Tương quan không chứng minh nhân quả."
+        )
     numeric = [c for c, role in mapping.items() if role == "numeric"]
     if len(numeric) >= 2:
         cols = st.columns(2)

@@ -44,8 +44,6 @@ def build_report(original, result, name="Dataset", metadata=None):
             fig = comparison_chart(original, result.frame, col)
             if fig is not None:
                 comparisons.append(fig.to_html(full_html=False, include_plotlyjs=False))
-            if len(comparisons) >= 6:
-                break
     env = Environment(loader=PackageLoader("dataprep", "templates"), autoescape=select_autoescape())
     html = env.get_template("report.html").render(
         name=name,

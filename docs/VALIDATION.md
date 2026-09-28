@@ -4,7 +4,7 @@
 
 ## Kết quả
 
-- `python -m pytest -q`: **66 passed** (cập nhật hỗ trợ 2 triệu dòng, ngày 2026-09-28).
+- `python -m pytest -q`: **68 passed** (cập nhật biểu đồ toàn bộ dữ liệu, ngày 2026-09-28).
 - `python -m ruff check .`: **All checks passed**.
 - `python -m ruff format --check .`: **24 files already formatted**.
 - `python -m pip check`: **No broken requirements found**.
@@ -50,4 +50,4 @@ Dữ liệu tổng hợp: **2.000.000 dòng × 5 cột**, gồm mã có số 0 �
 - RAM đỉnh của tiến trình: **955,4 MiB**, tính cả interpreter/thư viện. Đây là peak working set, không phải tổng RAM hệ thống hay mức RAM bảo đảm cho triển khai.
 - Kết quả máy đọc được: `outputs/benchmark_2m/results.json`. Script benchmark được lưu trong Git; dữ liệu và artifact sinh ra được bỏ qua bởi `.gitignore`.
 
-Benchmark dùng đường dẫn local, chưa bao gồm upload trình duyệt, nhiều phiên đồng thời, bảng rộng 200 cột, JSON lồng lớn hoặc giới hạn tài nguyên Community Cloud. Unit test/UI test kiểm tra thêm đọc JSONL nhiều lô, lỗi cuối file, chặn vượt giới hạn, bảo toàn bản gốc khi dùng snapshot nhẹ, cache thống kê và giới hạn dữ liệu **trước** khi tính tương quan.
+Benchmark dùng đường dẫn local, chưa bao gồm upload trình duyệt, nhiều phiên đồng thời, bảng rộng 200 cột, JSON lồng lớn hoặc giới hạn tài nguyên Community Cloud. Unit test/UI test kiểm tra thêm đọc JSONL nhiều lô, lỗi cuối file, chặn vượt giới hạn, bảo toàn bản gốc khi dùng snapshot nhẹ và cache thống kê. Sau benchmark này, cấu hình biểu đồ đã đổi sang dùng toàn bộ dòng/cột, không lấy mẫu; cần chạy lại phép đo trước khi so sánh hiệu năng report mới.

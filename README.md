@@ -75,7 +75,7 @@ app.py                 Giao diện Streamlit, trạng thái phiên và xem trư�
 dataprep/io.py         Đọc và kiểm tra đầu vào
 dataprep/profile.py    Thống kê, vai trò cột, cảnh báo và tương quan
 dataprep/pipeline.py   Biến đổi có thứ tự, validation, nhật ký
-dataprep/charts.py     Biểu đồ Plotly, tổng hợp/lấy mẫu có ghi rõ
+dataprep/charts.py     Biểu đồ Plotly trên toàn bộ dữ liệu hợp lệ
 dataprep/report.py     HTML và ZIP
 dataprep/cli.py        Giao diện dòng lệnh dùng cùng lõi xử lý
 dataprep/ml.py         Chia tập, chuẩn hóa, mã hóa và artifact cho ML
@@ -102,14 +102,14 @@ Kiểm tra bao gồm bảo toàn ID, dữ liệu lỗi, JSON lồng, SQLite ch�
 - Không tự suy luận định dạng ngày. Chuyển ngày yêu cầu format, kết quả chuẩn hóa timezone UTC. Khi dữ liệu nghiệp vụ cần timezone địa phương, phải chuẩn hóa nguồn trước.
 - Ký hiệu thiếu mặc định chỉ là ô rỗng; `NA`, `null`, `0` không tự coi là thiếu. Khoảng trắng chỉ trở thành thiếu khi chọn bước trim.
 - Không tự hiểu mọi nghiệp vụ hoặc tự xóa ngoại lệ. IQR bằng 0 / dưới 4 giá trị số thì không đưa ra ngưỡng.
-- Biểu đồ phân phối được tổng hợp từ toàn bộ giá trị hợp lệ. Scatter lấy mẫu tối đa 5.000 cặp, seed=42. Biểu đồ tương quan giới hạn trước khi tính: 30 cột số đầu và mẫu tối đa 100.000 dòng (seed=42, ghi rõ trên biểu đồ). Hàm `correlation()` của thư viện vẫn tính toàn bộ nếu không truyền giới hạn. HTML chỉ vẽ phân phối 8 cột đầu phù hợp / phiên bản, so sánh 6 cột; thống kê mô tả vẫn có cho mọi cột và dòng.
+- Mọi biểu đồ dùng toàn bộ dữ liệu hợp lệ, không lấy mẫu: tương quan dùng toàn bộ dòng và cột số, scatter dùng toàn bộ cặp và WebGL, phân phối được tạo cho mọi cột không phải ID/ignore, so sánh được tạo cho mọi cột số. Histogram, boxplot và biểu đồ phân loại tổng hợp toàn bộ bản ghi thay vì vẽ mỗi bản ghi thành một điểm. Báo cáo có thể tạo chậm và trình duyệt cần nhiều RAM với bảng lớn.
 - CSV không lưu đầy đủ dtype; `schema.json` để đối chiếu. Giá trị thiếu và chuỗi rỗng có thể không phân biệt được khi xuất CSV.
 - Report có thể chứa giá trị dữ liệu trong nhãn/tần suất, chưa có tính năng che dữ liệu nhạy cảm.
 - Đã chuẩn bị dữ liệu ML có giám sát; chưa huấn luyện/tối ưu mô hình, chia theo nhóm, tự học luật nghiệp vụ, AI/LLM hoặc cơ sở dữ liệu lưu lịch sử.
 
 ## Dữ liệu lớn và kiểm tra 2 triệu dòng
 
-Đọc CSV từ đường dẫn không tạo thêm bản sao bytes/chuỗi của cả file; JSONL đọc từng lô 50.000 bản ghi. Nhật ký thay đổi so sánh từng cột/lô, và CSV được ghi từng lô trực tiếp vào ZIP. Giao diện giữ thống kê trong phiên để không tính lại mỗi lần đổi widget. Với hơn 200.000 dòng, lấy CSV đầy đủ trong ZIP để tránh giữ thêm bản tải CSV trong RAM.
+Đọc CSV từ đường dẫn không tạo thêm bản sao bytes/chuỗi của cả file; JSONL đọc từng lô 50.000 bản ghi. Nhật ký thay đổi so sánh từng cột/lô, và CSV được ghi từng lô trực tiếp vào ZIP. Giao diện giữ thống kê trong phiên để không tính lại mỗi lần đổi widget. Với hơn 200.000 dòng, lấy CSV đầy đủ trong ZIP để tránh giữ thêm bản tải CSV trong RAM. Biểu đồ không lấy mẫu theo yêu cầu hiện tại nên có thể trở thành phần tốn thời gian và RAM nhất.
 
 Đây vẫn là xử lý trong RAM, chưa phải hệ thống out-of-core. JSON dạng mảng và Parquet vẫn nạp cả bảng; upload web, dữ liệu gốc, dữ liệu sạch, ma trận ML và gói ZIP có thể đồng thời chiếm bộ nhớ. Tăng dung lượng upload không tăng RAM của hosting. Để chạy thường xuyên trên dữ liệu lớn, dùng CLI/local hoặc máy chủ có RAM phù hợp sau khi đo bằng dữ liệu thực.
 

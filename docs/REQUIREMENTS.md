@@ -22,7 +22,7 @@ Thư viện Python và giao diện giúp khám phá, đánh giá chất lượng
 - Không sửa nguồn. Thất bại giữa quy trình không trả về dữ liệu thành công một phần.
 - Không tự coi ID là đại lượng đo hoặc xóa ngoại lệ.
 - So sánh trước–sau ghi rõ số dòng/cột và mẫu số tỷ lệ thiếu.
-- Thống kê trên toàn bộ dữ liệu đã nạp; lấy mẫu scatter phải ghi rõ.
+- Thống kê và biểu đồ dùng toàn bộ dữ liệu hợp lệ đã nạp, không lấy mẫu.
 - Đầu ra HTML nhúng thư viện để xem offline; CLI và UI dùng cùng lõi.
 
 ## Kịch bản bảo vệ

@@ -60,9 +60,9 @@
     </details>{% endfor %}{% endfor %}
   </section>
   <section id="charts"><h2>Khám phá dữ liệu</h2>
-    <p class="muted">Báo cáo giới hạn phân phối ở 8 cột đầu không phải ID/ignore mỗi phiên bản; tương quan tối đa 30 cột số, loại ID, lấy mẫu tối đa 100.000 dòng (seed=42). Các cột khác vẫn có thống kê trên toàn bộ dữ liệu ở trên.</p>
+    <p class="muted">Biểu đồ được tạo cho toàn bộ cột không phải ID/ignore. Mọi bản ghi hợp lệ đều tham gia phân phối và tương quan; không lấy mẫu. Histogram và boxplot là biểu đồ tổng hợp nên không vẽ mỗi bản ghi thành một điểm riêng.</p>
     {% for section in sections %}<h3>{{ section.title }}</h3>{% for fig in section.figures %}<div class="figure">{{ fig | safe }}</div>{% endfor %}{% endfor %}
-    <h3>Phân phối trước–sau</h3><p class="muted">Tối đa 6 cột số; cùng cách chia bin để so sánh số lượng bản ghi.</p>
+    <h3>Phân phối trước–sau</h3><p class="muted">Toàn bộ cột số; cùng cách chia bin để so sánh số lượng bản ghi.</p>
     {% for fig in comparisons %}<div class="figure">{{ fig | safe }}</div>{% endfor %}
   </section>
   <section id="pipeline"><h2>Nhật ký xử lý</h2>
