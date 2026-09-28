@@ -9,6 +9,7 @@ from .profile import correlation, numeric_values, resolve_roles
 
 COLORS = ["#087f8c", "#ef8a47", "#5562b5", "#b54f79"]
 MAX_POINTS = 5000
+MAX_CORRELATION_ROWS = 100_000
 
 
 def style(fig, title):
@@ -26,7 +27,7 @@ def style(fig, title):
 
 
 def missing_chart(frame):
-    counts = frame.isna().sum().sort_values(ascending=False)
+    counts = pd.Series({c: int(frame[c].isna().sum()) for c in frame}).sort_values(ascending=False)
     rates = counts / max(len(frame), 1) * 100
     return style(
         go.Figure(
@@ -94,9 +95,8 @@ def box_chart(frame, column):
 
 
 def correlation_chart(frame, roles=None, method="pearson"):
-    matrix = correlation(frame, roles, method)
-    # Bound rendering, but label the limit rather than silently implying all columns.
-    matrix = matrix.iloc[:30, :30]
+    # Bound the calculation itself, not only its rendered result.
+    matrix = correlation(frame, roles, method, max_rows=MAX_CORRELATION_ROWS, max_columns=30)
     if len(matrix) < 2:
         return None
     fig = go.Figure(
@@ -111,7 +111,9 @@ def correlation_chart(frame, roles=None, method="pearson"):
             hovertemplate="%{x} / %{y}: %{z:.3f}<extra></extra>",
         )
     )
-    return style(fig, f"Tương quan {method} · tối đa 30 cột số · ít nhất 3 cặp hợp lệ")
+    used, total = matrix.attrs["rows_used"], matrix.attrs["total_rows"]
+    scope = f"mẫu {used:,}/{total:,} dòng, seed=42" if used < total else f"toàn bộ {total:,} dòng"
+    return style(fig, f"Tương quan {method} · {scope} · tối đa 30 cột · ≥3 cặp hợp lệ")
 
 
 def scatter_chart(frame, x, y):

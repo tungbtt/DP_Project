@@ -2,7 +2,7 @@
 
 import zipfile
 from datetime import datetime, timezone
-from io import BytesIO
+from io import BytesIO, TextIOWrapper
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 from plotly.offline import get_plotlyjs
@@ -71,7 +71,11 @@ def export_bundle(original, result, name="Dataset", metadata=None):
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("report.html", report)
-        archive.writestr("cleaned_data.csv", result.frame.to_csv(index=False).encode("utf-8-sig"))
+        with (
+            archive.open("cleaned_data.csv", "w") as member,
+            TextIOWrapper(member, encoding="utf-8-sig", newline="") as text,
+        ):
+            result.frame.to_csv(text, index=False, chunksize=50_000)
         archive.writestr("pipeline.json", dumps(result.config))
         archive.writestr("processing_log.json", dumps(result.log))
         archive.writestr("schema.json", dumps(schema))

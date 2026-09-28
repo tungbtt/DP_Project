@@ -15,7 +15,7 @@ from dataprep.charts import (
     scatter_chart,
 )
 from dataprep.errors import DataPrepError
-from dataprep.io import LoadOptions, load_data, sqlite_tables
+from dataprep.io import MAX_BYTES, MAX_COLUMNS, MAX_ROWS, LoadOptions, load_data, sqlite_tables
 from dataprep.ml_ui import render_ml
 from dataprep.pipeline import OPERATIONS, parse_config, run_pipeline
 from dataprep.profile import ROLES, compare_profiles, profile_data, resolve_roles
@@ -41,7 +41,16 @@ st.markdown(
 
 
 def clear_results():
-    for key in ("preview", "preview_config", "result", "artifacts", "ml_result", "ml_bundle", "ml_signature"):
+    for key in (
+        "preview",
+        "preview_config",
+        "result",
+        "artifacts",
+        "ml_result",
+        "ml_bundle",
+        "ml_signature",
+        "profiles",
+    ):
         st.session_state.pop(key, None)
 
 
@@ -80,9 +89,23 @@ def current_roles(frame, processed=False):
     return resolve_roles(frame, roles)
 
 
+def session_profile(frame, processed=False):
+    # Cache compact summaries in this session, without hashing/caching the entire table.
+    # Dataset/config changes clear this cache; applying a result invalidates its entry.
+    profiles = st.session_state.setdefault("profiles", {})
+    key = "processed" if processed else "original"
+    if key not in profiles:
+        with st.spinner("Đang tính thống kê trên toàn bộ dữ liệu…"):
+            profiles[key] = profile_data(frame, current_roles(frame, processed))
+    return profiles[key]
+
+
 with st.sidebar:
     st.subheader("Không gian dữ liệu")
-    st.caption("Xử lý tại máy đang chạy ứng dụng. Giới hạn 100 MiB, 200.000 dòng và 200 cột.")
+    st.caption(
+        f"Xử lý tại máy đang chạy ứng dụng. Giới hạn {MAX_BYTES // (1024 * 1024)} MiB, "
+        f"{MAX_ROWS:,} dòng và {MAX_COLUMNS} cột. Khả năng xử lý phụ thuộc RAM và số cột."
+    )
     uploaded = st.file_uploader(
         "Chọn dữ liệu",
         type=["csv", "tsv", "json", "jsonl", "ndjson", "xlsx", "db", "sqlite", "sqlite3", "parquet"],
@@ -149,14 +172,21 @@ dataset = st.session_state.dataset
 original = dataset.frame
 config = st.session_state.config
 active_result = st.session_state.get("result")
+base_profile = session_profile(original)
 st.caption(
     f"Nguồn: {dataset.name} · {len(original):,} dòng × {len(original.columns)} cột · Bản gốc được giữ nguyên"
 )
 metrics = st.columns(4)
 metrics[0].metric("Dòng dữ liệu", f"{len(original):,}")
 metrics[1].metric("Số cột", len(original.columns))
-metrics[2].metric("Ô thiếu", f"{original.isna().sum().sum():,}")
-metrics[3].metric("Bản sao dư", f"{original.duplicated().sum():,}")
+metrics[2].metric("Ô thiếu", f"{base_profile['overview']['missing_cells']:,}")
+metrics[3].metric("Bản sao dư", f"{base_profile['overview']['duplicate_rows']:,}")
+if len(original) > 200_000:
+    st.info(
+        f"Bảng đang chiếm khoảng {base_profile['overview']['memory_bytes'] / 1024**2:,.0f} MiB trong RAM. "
+        "Làm sạch, học máy và xuất kết quả cần thêm bộ nhớ. Thống kê dùng toàn bộ bảng; "
+        "tương quan dùng tối đa 100.000 dòng, scatter tối đa 5.000 điểm."
+    )
 tabs = st.tabs(
     ["1. Dữ liệu", "2. Khám phá EDA", "3. Làm sạch", "4. So sánh", "5. Xuất kết quả", "6. Học máy"]
 )
@@ -195,7 +225,7 @@ with tabs[1]:
     use_clean = st.checkbox("Khám phá dữ liệu đã làm sạch", disabled=active_result is None, key="eda_clean")
     data = active_result.frame if use_clean and active_result is not None else original
     mapping = current_roles(data, use_clean and active_result is not None)
-    profile = profile_data(data, mapping)
+    profile = session_profile(data, use_clean and active_result is not None)
     st.subheader("Chất lượng & đề xuất")
     if profile["issues"]:
         st.dataframe(
@@ -373,14 +403,15 @@ with tabs[2]:
         if st.button("Áp dụng kết quả đã xem trước", type="primary"):
             st.session_state.result = preview
             st.session_state.pop("artifacts", None)
+            st.session_state.get("profiles", {}).pop("processed", None)
             st.rerun()
 
 with tabs[3]:
     if active_result is None:
         st.info("Xem trước và áp dụng quy trình trong tab Làm sạch để so sánh.")
     else:
-        before = profile_data(original, current_roles(original))
-        after = profile_data(active_result.frame, current_roles(active_result.frame, True))
+        before = base_profile
+        after = session_profile(active_result.frame, True)
         st.dataframe(compare_profiles(before, after), hide_index=True, use_container_width=True)
         st.caption(
             "Tỷ lệ thiếu dùng tổng số ô của từng phiên bản. Xem cả số dòng/cột bị xóa khi đánh giá chất lượng."
@@ -430,13 +461,16 @@ with tabs[4]:
             "application/zip",
             use_container_width=True,
         )
-        cols[2].download_button(
-            "Tải dữ liệu sạch CSV",
-            artifact["result"].frame.to_csv(index=False).encode("utf-8-sig"),
-            "cleaned_data.csv",
-            "text/csv",
-            use_container_width=True,
-        )
+        if len(artifact["result"].frame) <= 200_000:
+            cols[2].download_button(
+                "Tải dữ liệu sạch CSV",
+                artifact["result"].frame.to_csv(index=False).encode("utf-8-sig"),
+                "cleaned_data.csv",
+                "text/csv",
+                use_container_width=True,
+            )
+        else:
+            cols[2].info("CSV đầy đủ nằm trong gói ZIP. Tải ZIP và giải nén để lấy cleaned_data.csv.")
     st.download_button("Lưu pipeline đang cấu hình", dumps(config), "pipeline.json", "application/json")
 
 with tabs[5]:

@@ -29,7 +29,12 @@ def resolve_roles(frame, roles=None):
         raise DataPrepError("Vai trò tham chiếu cột không tồn tại: " + ", ".join(set(roles) - set(frame)))
     if any(v not in ROLES for v in roles.values()):
         raise DataPrepError("Vai trò cột không hợp lệ.")
-    return {c: roles.get(c, infer_role(frame[c])) for c in frame}
+    return {c: roles[c] if c in roles else infer_role(frame[c]) for c in frame}
+
+
+def missing_count(frame):
+    """Count exactly without materializing a rows × columns boolean table."""
+    return sum(int(frame[c].isna().sum()) for c in frame)
 
 
 def numeric_values(series):
@@ -49,7 +54,7 @@ def iqr_bounds(series, factor=1.5):
 def profile_data(frame, roles=None):
     roles = resolve_roles(frame, roles)
     n, p = frame.shape
-    missing = int(frame.isna().sum().sum())
+    missing = missing_count(frame)
     result = {
         "overview": {
             "rows": n,
@@ -176,13 +181,21 @@ def profile_data(frame, roles=None):
     return json_safe(result)
 
 
-def correlation(frame, roles=None, method="pearson"):
+def correlation(frame, roles=None, method="pearson", *, max_rows=None, max_columns=None):
     if method not in ("pearson", "spearman"):
         raise DataPrepError("Chỉ hỗ trợ Pearson hoặc Spearman.")
     resolved = resolve_roles(frame, roles)
     cols = [c for c in frame if resolved[c] == "numeric"]
-    numeric = pd.DataFrame({c: numeric_values(frame[c]) for c in cols})
-    return numeric.corr(method=method, min_periods=3)
+    if max_columns is not None:
+        cols = cols[:max_columns]
+    selected = frame[cols]
+    if max_rows is not None and len(selected) > max_rows:
+        selected = selected.sample(max_rows, random_state=42)
+    numeric = pd.DataFrame({c: numeric_values(selected[c]) for c in cols})
+    result = numeric.corr(method=method, min_periods=3)
+    result.attrs["rows_used"] = len(selected)
+    result.attrs["total_rows"] = len(frame)
+    return result
 
 
 def compare_profiles(before, after):

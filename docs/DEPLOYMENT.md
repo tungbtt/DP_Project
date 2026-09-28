@@ -19,7 +19,7 @@ Các bước kết nối tài khoản và deploy cần được thực hiện tr
 ## Cấu hình đã có trong project
 
 - `requirements.txt`: cài project Python cùng dependency khai báo trong `pyproject.toml`, khóa phiên bản bằng constraints từ `requirements-lock.txt`.
-- `.streamlit/config.toml`: theme, upload tối đa 100 MiB, tắt thống kê sử dụng Streamlit.
+- `.streamlit/config.toml`: theme, upload tối đa 512 MiB, tắt thống kê sử dụng Streamlit.
 - `.github/workflows/tests.yml`: chạy test/lint trên Ubuntu và Windows, Python 3.12 khi push/PR.
 - `.gitignore`: loại `.venv`, outputs và secrets khỏi Git; không đưa dữ liệu người dùng vào repo.
 - `requirements-lock.txt`: phiên bản đầy đủ đã kiểm tra, dùng cho CI/tái lập local; Cloud dùng file này làm constraints để giữ đúng phiên bản dependency của ứng dụng mà không cần cài công cụ dev.
@@ -30,7 +30,7 @@ Không cần cấu hình secret cho chức năng hiện tại. Khi mở rộng k
 
 App xử lý dữ liệu trong RAM của máy chủ, không upload file của người dùng vào GitHub. Kết quả được tải về bằng nút download. Làm mới/đóng phiên hoặc restart app có thể làm mất trạng thái chưa tải xuống.
 
-Khi dùng web, file được gửi từ trình duyệt đến máy chủ Streamlit; nếu dữ liệu cần giữ hoàn toàn trên máy cá nhân, dùng bản local. Giới hạn 100 MiB/200.000 dòng trong app không phải cam kết máy chủ Cloud đủ RAM cho mọi file. Nên thử dữ liệu nhỏ trước và điều chỉnh `MAX_BYTES`, `MAX_ROWS`, `MAX_COLUMNS` trong `dataprep/io.py` cùng `server.maxUploadSize` nếu cần.
+Khi dùng web, file được gửi từ trình duyệt đến máy chủ Streamlit; nếu dữ liệu cần giữ hoàn toàn trên máy cá nhân, dùng bản local. Giới hạn 512 MiB/2.000.000 dòng/200 cột trong app không phải cam kết máy chủ Cloud đủ RAM cho mọi file. Tăng `server.maxUploadSize` chỉ tăng giới hạn upload. Bảng lớn, nhiều phiên cùng lúc, làm sạch và mã hóa ML có thể vượt bộ nhớ của hosting; đo trên dữ liệu thực và chọn máy chủ phù hợp. Có thể chạy `scripts/benchmark_large.py` trên máy đích trước khi vận hành. Benchmark local không chứng minh khả năng xử lý trên Community Cloud.
 
 GitHub Actions kiểm tra code; workflow không tự tạo ứng dụng Cloud và không phải cổng chặn việc Cloud tự cập nhật từ nhánh đang deploy. Muốn kiểm soát phát hành, chỉ merge vào nhánh deploy sau khi CI đạt.
 

@@ -89,7 +89,9 @@ def main(argv=None):
         html, bundle = export_bundle(dataset.frame, result, dataset.name, dataset.metadata)
         args.output.mkdir(parents=True, exist_ok=True)
         (args.output / "report.html").write_text(html, encoding="utf-8")
-        (args.output / "cleaned_data.csv").write_bytes(result.frame.to_csv(index=False).encode("utf-8-sig"))
+        result.frame.to_csv(
+            args.output / "cleaned_data.csv", index=False, encoding="utf-8-sig", chunksize=50_000
+        )
         (args.output / "pipeline.json").write_text(dumps(config), encoding="utf-8")
         (args.output / "processing_log.json").write_text(dumps(result.log), encoding="utf-8")
         (args.output / "schema.json").write_text(

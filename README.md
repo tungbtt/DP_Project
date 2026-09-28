@@ -97,15 +97,31 @@ Kiểm tra bao gồm bảo toàn ID, dữ liệu lỗi, JSON lồng, SQLite ch�
 
 ## Giới hạn có chủ đích
 
-- Dữ liệu dạng bảng, tối đa 100 MiB / 200.000 dòng / 200 cột. Đây là giới hạn đầu vào, không phải cam kết hiệu năng trên mọi cấu hình máy. Toàn bộ bảng được giữ trong RAM.
+- Dữ liệu dạng bảng, tối đa **512 MiB / 2.000.000 dòng / 200 cột**. Đây là giới hạn đầu vào, không phải cam kết hiệu năng trên mọi cấu hình máy. Toàn bộ bảng được giữ trong RAM; bảng rộng hoặc nhiều chuỗi cần nhiều bộ nhớ hơn bảng số hẹp. Excel vẫn chịu giới hạn số dòng của định dạng XLSX; dùng CSV/JSONL/Parquet/SQLite cho 2 triệu dòng.
 - SQL hiện hỗ trợ file SQLite chỉ đọc; không thực thi file `.sql`, không kết nối MySQL/PostgreSQL.
 - Không tự suy luận định dạng ngày. Chuyển ngày yêu cầu format, kết quả chuẩn hóa timezone UTC. Khi dữ liệu nghiệp vụ cần timezone địa phương, phải chuẩn hóa nguồn trước.
 - Ký hiệu thiếu mặc định chỉ là ô rỗng; `NA`, `null`, `0` không tự coi là thiếu. Khoảng trắng chỉ trở thành thiếu khi chọn bước trim.
 - Không tự hiểu mọi nghiệp vụ hoặc tự xóa ngoại lệ. IQR bằng 0 / dưới 4 giá trị số thì không đưa ra ngưỡng.
-- Biểu đồ phân phối được tổng hợp từ toàn bộ giá trị hợp lệ. Scatter lấy mẫu tối đa 5.000 cặp, seed=42. HTML chỉ vẽ phân phối 8 cột đầu phù hợp / phiên bản, tương quan 30 cột, so sánh 6 cột; thống kê vẫn có cho mọi cột.
+- Biểu đồ phân phối được tổng hợp từ toàn bộ giá trị hợp lệ. Scatter lấy mẫu tối đa 5.000 cặp, seed=42. Biểu đồ tương quan giới hạn trước khi tính: 30 cột số đầu và mẫu tối đa 100.000 dòng (seed=42, ghi rõ trên biểu đồ). Hàm `correlation()` của thư viện vẫn tính toàn bộ nếu không truyền giới hạn. HTML chỉ vẽ phân phối 8 cột đầu phù hợp / phiên bản, so sánh 6 cột; thống kê mô tả vẫn có cho mọi cột và dòng.
 - CSV không lưu đầy đủ dtype; `schema.json` để đối chiếu. Giá trị thiếu và chuỗi rỗng có thể không phân biệt được khi xuất CSV.
 - Report có thể chứa giá trị dữ liệu trong nhãn/tần suất, chưa có tính năng che dữ liệu nhạy cảm.
 - Đã chuẩn bị dữ liệu ML có giám sát; chưa huấn luyện/tối ưu mô hình, chia theo nhóm, tự học luật nghiệp vụ, AI/LLM hoặc cơ sở dữ liệu lưu lịch sử.
+
+## Dữ liệu lớn và kiểm tra 2 triệu dòng
+
+Đọc CSV từ đường dẫn không tạo thêm bản sao bytes/chuỗi của cả file; JSONL đọc từng lô 50.000 bản ghi. Nhật ký thay đổi so sánh từng cột/lô, và CSV được ghi từng lô trực tiếp vào ZIP. Giao diện giữ thống kê trong phiên để không tính lại mỗi lần đổi widget. Với hơn 200.000 dòng, lấy CSV đầy đủ trong ZIP để tránh giữ thêm bản tải CSV trong RAM.
+
+Đây vẫn là xử lý trong RAM, chưa phải hệ thống out-of-core. JSON dạng mảng và Parquet vẫn nạp cả bảng; upload web, dữ liệu gốc, dữ liệu sạch, ma trận ML và gói ZIP có thể đồng thời chiếm bộ nhớ. Tăng dung lượng upload không tăng RAM của hosting. Để chạy thường xuyên trên dữ liệu lớn, dùng CLI/local hoặc máy chủ có RAM phù hợp sau khi đo bằng dữ liệu thực.
+
+Benchmark tùy chọn (tạo dữ liệu tổng hợp 2 triệu dòng, nạp, thống kê, làm sạch, HTML/ZIP và kiểm chứng số bản ghi xuất):
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 scripts/benchmark_large.py
+# Kiểm tra thêm chuẩn bị dữ liệu ML:
+.\.venv\Scripts\python.exe -X utf8 scripts/benchmark_large.py --ml
+```
+
+Kết quả và dữ liệu thử nằm trong `outputs/benchmark_2m/` (không commit). Xem [VALIDATION.md](docs/VALIDATION.md) cho kết quả đo và phạm vi kiểm tra.
 
 ## Triển khai web từ GitHub
 

@@ -228,10 +228,15 @@ def _apply(frame, step):
 def changed_cells(before, after):
     cols = before.columns.intersection(after.columns)
     rows = before.index.intersection(after.index)
-    a, b = before.loc[rows, cols], after.loc[rows, cols]
-    # String comparison handles extension dtypes; missing-vs-literal strings remain distinct.
-    equal = a.astype("string").eq(b.astype("string")).fillna(False) | (a.isna() & b.isna())
-    return int((~equal).sum().sum())
+    changed = 0
+    # Bound temporary strings to one column and one chunk, even for millions of rows.
+    for col in cols:
+        for start in range(0, len(rows), 50_000):
+            selected = rows[start : start + 50_000]
+            a, b = before.loc[selected, col], after.loc[selected, col]
+            equal = a.astype("string").eq(b.astype("string")).fillna(False) | (a.isna() & b.isna())
+            changed += int((~equal).sum())
+    return changed
 
 
 def run_pipeline(original, config):
@@ -243,7 +248,8 @@ def run_pipeline(original, config):
     frame = original.copy(deep=True).reset_index(drop=True)
     log = []
     for index, step in enumerate(config.get("steps", []), 1):
-        before = frame.copy(deep=True)
+        # _apply replaces columns/frames; it never mutates shared column buffers in place.
+        before = frame.copy(deep=False)
         try:
             frame = _apply(frame, step)
         except (ValueError, TypeError, KeyError, OverflowError) as exc:
@@ -258,8 +264,8 @@ def run_pipeline(original, config):
                 "removed_rows": len(before) - len(frame),
                 "removed_columns": list(before.columns.difference(frame.columns)),
                 "changed_cells_retained": changed_cells(before, frame),
-                "missing_before": int(before.isna().sum().sum()),
-                "missing_after": int(frame.isna().sum().sum()),
+                "missing_before": sum(int(before[c].isna().sum()) for c in before),
+                "missing_after": sum(int(frame[c].isna().sum()) for c in frame),
                 "dtype_changes": {
                     c: [str(before[c].dtype), str(frame[c].dtype)]
                     for c in frame

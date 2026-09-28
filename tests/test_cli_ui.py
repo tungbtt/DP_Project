@@ -56,6 +56,9 @@ def test_streamlit_demo_preview_apply_export():
     button(app, "Dùng dữ liệu mẫu").click().run()
     assert not app.exception
     assert len(app.metric) == 4
+    first_profile = app.session_state["profiles"]["original"]
+    app.run()
+    assert app.session_state["profiles"]["original"] is first_profile
     editor = next(t for t in app.text_area if t.label == "Cấu hình JSON")
     editor.set_value((ROOT / "examples/pipeline.json").read_text(encoding="utf-8")).run()
     button(app, "Nạp cấu hình JSON").click().run()
@@ -65,6 +68,7 @@ def test_streamlit_demo_preview_apply_export():
     assert len(app.session_state["preview"].frame) == 20
     button(app, "Áp dụng kết quả đã xem trước").click().run()
     assert not app.exception
+    assert app.session_state["profiles"]["processed"]["overview"]["rows"] == 20
     button(app, "Tạo báo cáo và gói kết quả").click().run()
     assert not app.exception
     assert "artifacts" in app.session_state
@@ -73,6 +77,7 @@ def test_streamlit_demo_preview_apply_export():
     assert not app.exception
     assert "result" not in app.session_state
     assert "artifacts" not in app.session_state
+    assert "processed" not in app.session_state["profiles"]
 
 
 def test_streamlit_ml_preparation_and_stale_export_invalidation():
