@@ -24,7 +24,9 @@ Các bước kết nối tài khoản và deploy cần được thực hiện tr
 - `.gitignore`: loại `.venv`, outputs và secrets khỏi Git; không đưa dữ liệu người dùng vào repo.
 - `requirements-lock.txt`: phiên bản đầy đủ đã kiểm tra, dùng cho CI/tái lập local; Cloud dùng file này làm constraints để giữ đúng phiên bản dependency của ứng dụng mà không cần cài công cụ dev.
 
-Không cần cấu hình secret cho chức năng hiện tại. Khi mở rộng kết nối DB, đặt credential trong phần Secrets của Cloud, không commit vào Git.
+Không cần secret cho file local, Kaggle công khai cho phép tải ẩn danh hoặc Drive công khai. Dataset Kaggle yêu cầu xác thực có ô nhập token riêng trong giao diện; mỗi phiên cung cấp thông tin riêng, xóa ô nhập sau khi tải. Không commit token hoặc `kaggle.json` vào Git. Ứng dụng chưa kết nối OAuth Google Drive.
+
+Nhập link cần máy chủ có kết nối HTTPS ra Kaggle và Google Drive/các máy chủ tải của hai dịch vụ. File tải/ZIP được giữ trong thư mục tạm riêng của phiên; tải nguồn mới hoặc đặt lại phiên sẽ dọn file cũ. Dung lượng đĩa tạm cần đủ cho gói tải và file được giải nén (tối đa khoảng 1 GiB/phiên ngoài RAM của bảng). Không cấu hình proxy tự động từ môi trường cho luồng tải này.
 
 ## Vận hành
 

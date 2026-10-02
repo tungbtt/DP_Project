@@ -15,6 +15,8 @@ Thư viện Python và giao diện giúp khám phá, đánh giá chất lượng
 7. Áp dụng pipeline, kiểm tra tác động và vấn đề còn tồn tại.
 8. Xuất CSV, HTML, ZIP, schema, metadata, nhật ký và pipeline tái sử dụng.
 9. Chuẩn bị dữ liệu học máy: chọn target/features; chia ngẫu nhiên/phân tầng/thời gian; điền thiếu, chuẩn hóa và mã hóa chỉ fit trên train; xuất các tập và fitted preprocessor.
+10. Nhập link dataset Kaggle hoặc file Google Drive công khai, tải và chọn file trong ZIP, cấu hình đọc rồi nạp qua bộ đọc chung. Kaggle hỗ trợ token hoặc username/API key cũ; Drive chưa có OAuth cho file riêng tư.
+11. Điều hướng 5 bước, chỉ tạo biểu đồ ở màn hình đang mở; giữ dữ liệu/pipeline/kết quả khi đổi bước và cấu hình ML khi rời trang. Nạp bộ dữ liệu mới vô hiệu hóa kết quả của bộ trước.
 
 ## Nguyên tắc chất lượng
 

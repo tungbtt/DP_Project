@@ -15,7 +15,7 @@ def render_ml(original, roles, dataset_key):
     st.subheader("Chuẩn bị dữ liệu cho học máy")
     st.info(
         "Dùng dữ liệu gốc đã nạp và chia tập trước khi điền thiếu, chuẩn hóa, mã hóa. "
-        "Kết quả làm sạch ở tab 3 không tự đưa vào luồng ML vì có thể đã học thống kê trên toàn bộ dữ liệu."
+        "Kết quả ở bước Làm sạch không tự đưa vào luồng ML vì có thể đã học thống kê trên toàn bộ dữ liệu."
     )
     st.caption(
         "Hỗ trợ bài toán có giám sát. Chọn feature phù hợp; loại mã định danh, nội dung tự do "
@@ -74,7 +74,7 @@ def render_ml(original, roles, dataset_key):
     st.caption(
         "Cột phân loại thiếu được gán nhãn riêng. Mọi tham số đều học trên train và dùng lại cho validation/test."
     )
-    with st.expander("Chia tập và xử lý giá trị lỗi", expanded=True):
+    with st.expander("Chia tập và xử lý giá trị lỗi", expanded=False):
         cols = st.columns(3)
         test_pct = cols[0].number_input(
             "Test (%)", min_value=5, max_value=45, value=20, step=5, key=prefix + "test"

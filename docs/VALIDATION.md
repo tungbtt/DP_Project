@@ -2,7 +2,22 @@
 
 Đã kiểm tra trên Windows, Python 3.12.14. Phiên bản dependency thực tế được lưu trong `requirements-lock.txt`.
 
-## Kết quả
+## Phiên bản 1.3 — nhập link và giao diện 5 bước (2026-10-02)
+
+- Hoàn thành code giao diện, tải link, tài liệu và test trước khi chạy kiểm thử theo yêu cầu.
+- `python -m pytest -q`: **105 passed** (16,71 giây ở lượt cuối).
+- `python -m ruff check .`: **All checks passed**; `ruff format --check .`: **28 files already formatted**.
+- `python -m pip check`: **No broken requirements found**.
+- Kiểm thử HTTP mô phỏng: link hợp lệ/không hỗ trợ, HTTPS và chuyển hướng, địa chỉ nội bộ, lỗi quyền/hạn mức, file rỗng/tải dở/quá dung lượng, xác nhận Drive, không chuyển credential sang host khác, ZIP chọn file/đường dẫn lỗi, XLSX có/không có tên trong header, SQLite từ đường dẫn tạm.
+- AppTest: mẫu → pipeline 7 bước → xem trước → áp dụng → so sánh → HTML/ZIP; thay đổi cấu hình hủy artifact cũ; ML fit trên train và giữ lựa chọn khi chuyển trang; trang không hoạt động không tạo biểu đồ EDA; nhập link → chọn CSV thứ hai trong ZIP → nạp; lỗi tải giữ dataset đang làm việc; reset dọn thư mục tải tạm.
+- Mạng thực tế: tải dataset Kaggle `uciml/iris`, liệt kê `Iris.csv` và `database.sqlite`, nạp **150 dòng × 6 cột**, metadata ghi đúng nguồn và file.
+- Mạng thực tế: tải file công khai `spam.txt` (**5 byte**) từ link mẫu của gdown `0B9P1L--7Wd2vU3VUVlFnbTgtS2c`. Đây là xác minh tải file Drive; không dùng file TXT này để xác minh đọc bảng. Đọc bảng Drive được kiểm tra bằng fixture CSV/XLSX/SQLite qua HTTP mô phỏng.
+- Trình duyệt localhost: chọn Kaggle, nhập link Iris, tải ZIP, nạp CSV; EDA và Plotly hiển thị; chọn cột số; chuyển bước làm sạch, xem trước/áp dụng pipeline rỗng **150 → 150**, tạo các nút tải HTML/ZIP/CSV. Tương tác dùng bàn phím do thao tác click của trình duyệt nhúng không kích hoạt được nút trong phiên kiểm tra này.
+- Rà trực quan phát hiện và sửa lựa chọn widget không đồng bộ khi trở lại trang đã ẩn. Xác minh lại trên trình duyệt: nguồn Kaggle, URL và `Iris.csv` hiển thị đúng sau vòng Nguồn → Khám phá → Nguồn.
+- Xác minh trên trình duyệt lựa chọn RobustScaler được giữ và hiển thị đúng sau vòng Học máy → Khám phá → Học máy. Ảnh kết quả kiểm tra lưu tại `outputs/ui_validation/results.png` (không commit).
+- Chưa kiểm tra thực tế dataset Kaggle riêng tư/API token, Drive riêng tư (không hỗ trợ OAuth), hay quota của tài khoản người dùng. Không chạy lại benchmark 2 triệu dòng trong lần thay giao diện; số đo cũ bên dưới chỉ là lịch sử. Chưa push hoặc deploy bản này.
+
+## Kết quả phiên bản trước
 
 - `python -m pytest -q`: **68 passed** (cập nhật biểu đồ toàn bộ dữ liệu, ngày 2026-09-28).
 - `python -m ruff check .`: **All checks passed**.

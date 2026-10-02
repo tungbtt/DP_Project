@@ -2,7 +2,7 @@
 
 Đồ án Python: tự động khám phá dữ liệu dạng bảng, làm sạch có giải thích và xuất báo cáo HTML tương tác bằng Plotly.
 
-Phiên bản 1.1 bổ sung tab **Học máy**: chia train/validation/test, chuẩn hóa, mã hóa và xuất bộ tiền xử lý đã fit. Xem [hướng dẫn ML](docs/MACHINE_LEARNING.md) và [deploy từ GitHub lên Streamlit Cloud](docs/DEPLOYMENT.md).
+Phiên bản 1.3 bổ sung **nhập link Kaggle / Google Drive** và giao diện 5 bước, chỉ xử lý màn hình đang mở. Xem [hướng dẫn nhập link](docs/REMOTE_SOURCES.md), [hướng dẫn ML](docs/MACHINE_LEARNING.md) và [deploy từ GitHub lên Streamlit Cloud](docs/DEPLOYMENT.md).
 
 ## Cài đặt và chạy
 
@@ -35,13 +35,11 @@ Parquet là tùy chọn: `python -m pip install -e ".[parquet]"` trong môi trư
 
 ## Quy trình sử dụng
 
-1. Nạp file hoặc nhấn **Dùng dữ liệu mẫu**. Điều chỉnh dấu phân cách, encoding, ký hiệu thiếu khi cần.
-2. Xác nhận vai trò cột trong tab **Dữ liệu**. Vai trò không tự đổi kiểu dữ liệu; ID được loại khỏi tương quan.
-3. Xem thống kê, vấn đề và biểu đồ ở **Khám phá EDA**.
-4. Thêm các bước ở **Làm sạch**, hoặc nạp `examples/pipeline.json` khi dùng dữ liệu mẫu.
-5. Nhấn **Xem trước toàn bộ quy trình**, kiểm tra dữ liệu và nhật ký, rồi **Áp dụng kết quả đã xem trước**.
-6. Xem **So sánh**, sau đó tạo và tải báo cáo ở **Xuất kết quả**.
-7. Nếu chuẩn bị cho mô hình, mở **6. Học máy**, chọn target/features, phương pháp chuẩn hóa và chia tập, rồi tải gói ML. Luồng này dùng dữ liệu gốc; không dùng thống kê đã fit toàn bộ dữ liệu ở tab Làm sạch.
+1. **Nguồn dữ liệu**: chọn Máy tính, Kaggle hoặc Google Drive. Với link, nhấn **Tải danh sách file**, chọn file trong ZIP nếu có, rồi **Nạp dữ liệu**. Có nút **Dùng dữ liệu mẫu** để bắt đầu nhanh; các tùy chọn đọc được thu gọn.
+2. **Khám phá**: chọn Tổng quan / Theo cột / Mối liên hệ. Bảng gốc và chỉnh vai trò nằm trong mục mở rộng ở Tổng quan. Vai trò không tự đổi kiểu lưu trữ; ID được loại khỏi tương quan.
+3. **Làm sạch**: thêm các bước hoặc nạp `examples/pipeline.json`. Nhấn **Xem trước toàn bộ quy trình**, kiểm tra dữ liệu và nhật ký, rồi **Áp dụng kết quả đã xem trước**.
+4. **Kết quả**: chọn So sánh trước – sau hoặc Tải kết quả để tạo HTML/ZIP/CSV và lưu pipeline.
+5. **Học máy**: chọn target/features, chuẩn hóa và chia tập, rồi tải gói ML. Luồng này dùng dữ liệu gốc; không dùng thống kê đã fit toàn bộ dữ liệu ở bước Làm sạch. Cấu hình ML được giữ khi chuyển màn hình.
 
 Sửa pipeline hoặc vai trò cột sẽ vô hiệu hóa kết quả cũ để tránh xuất báo cáo sai cấu hình. Mỗi lần chạy đều bắt đầu từ bản gốc. Nếu một bước lỗi, không xuất kết quả chạy dở. Đóng phiên làm việc sẽ mất dữ liệu đang giữ trong bộ nhớ; hãy tải ZIP/pipeline để lưu lại.
 
@@ -59,10 +57,11 @@ Bỏ `--pipeline` để chỉ chạy EDA. Thêm `--table ten_bang` cho SQLite nh
 ## Chức năng
 
 - CSV/TSV, JSON/JSONL, XLSX, SQLite; Parquet khi cài dependency tùy chọn.
+- Link dataset Kaggle (công khai hoặc API token có quyền) và file Google Drive công khai; tải ZIP, chọn một bảng, xử lý qua cùng bộ đọc dữ liệu local.
 - Phát hiện dấu phân cách CSV; kiểm tra dòng sai số trường, tiêu đề trùng và dữ liệu rỗng.
 - JSON object lồng nhau được làm phẳng bằng dấu chấm; mảng lồng giữ thành chuỗi JSON, không tự nhân số dòng. Nhánh JSON dùng đường dẫn dấu chấm.
 - Thống kê số, phân loại, chuỗi, ngày giờ; thiếu, bản sao dư, cột hằng, sai kiểu và ngoại lệ IQR.
-- Histogram, boxplot, top-category bar, thiếu theo cột, tương quan Pearson/Spearman, scatter, số bản ghi theo ngày.
+- Histogram, boxplot, biểu đồ toàn bộ nhóm phân loại, thiếu theo cột, tương quan Pearson/Spearman, scatter, số bản ghi theo ngày.
 - Chuẩn hóa chuỗi, ánh xạ nhãn, chuyển số/ngày, điền thiếu, xóa dòng thiếu, loại trùng, xóa cột, IQR và miền giá trị.
 - Nhật ký từng bước; so sánh trước–sau; pipeline JSON có thể sửa, sắp xếp và tái sử dụng.
 - Báo cáo HTML offline nhúng Plotly.js một lần; nội dung văn bản nguồn được escape trong template.
@@ -73,6 +72,8 @@ Bỏ `--pipeline` để chỉ chạy EDA. Thêm `--table ten_bang` cho SQLite nh
 ```text
 app.py                 Giao diện Streamlit, trạng thái phiên và xem trước
 dataprep/io.py         Đọc và kiểm tra đầu vào
+dataprep/remote.py     Tải Kaggle/Drive có giới hạn, kiểm tra ZIP, metadata nguồn
+dataprep/source_ui.py  Giao diện chọn nguồn và vòng đời file tải tạm
 dataprep/profile.py    Thống kê, vai trò cột, cảnh báo và tương quan
 dataprep/pipeline.py   Biến đổi có thứ tự, validation, nhật ký
 dataprep/charts.py     Biểu đồ Plotly trên toàn bộ dữ liệu hợp lệ

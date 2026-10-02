@@ -160,11 +160,12 @@ def _sqlite(source, table="", list_only=False):
 
 
 def sqlite_tables(payload):
-    if len(payload) > MAX_BYTES:
-        raise DataPrepError(f"File vượt giới hạn {MAX_BYTES // (1024 * 1024)} MiB.")
     try:
+        size = Path(payload).stat().st_size if isinstance(payload, (str, Path)) else len(payload)
+        if size > MAX_BYTES:
+            raise DataPrepError(f"File vượt giới hạn {MAX_BYTES // (1024 * 1024)} MiB.")
         return _sqlite(payload, list_only=True)
-    except sqlite3.Error as exc:
+    except (sqlite3.Error, OSError) as exc:
         raise DataPrepError(f"Không đọc được SQLite: {exc}") from exc
 
 

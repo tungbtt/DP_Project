@@ -1,7 +1,7 @@
-"""Vietnamese Streamlit UI. Run: streamlit run app.py"""
+"""Data Prep Studio: one active workspace step per rerun."""
 
-import hashlib
 from pathlib import Path
+from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
@@ -15,27 +15,29 @@ from dataprep.charts import (
     scatter_chart,
 )
 from dataprep.errors import DataPrepError
-from dataprep.io import MAX_BYTES, MAX_COLUMNS, MAX_ROWS, LoadOptions, load_data, sqlite_tables
 from dataprep.ml_ui import render_ml
 from dataprep.pipeline import OPERATIONS, parse_config, run_pipeline
 from dataprep.profile import ROLES, compare_profiles, profile_data, resolve_roles
 from dataprep.report import export_bundle
 from dataprep.serialization import dumps
+from dataprep.source_ui import clear_credentials, discard_download, render_source
 
 ROOT = Path(__file__).parent
+STAGES = ["Nguồn dữ liệu", "Khám phá", "Làm sạch", "Kết quả", "Học máy"]
 st.set_page_config(page_title="Data Prep Studio", page_icon="📊", layout="wide")
 st.markdown(
     """<style>
-.block-container {max-width:1400px;padding-top:2rem}
-[data-testid="stMetric"] {background:white;border:1px solid #dce4ed;border-radius:10px;padding:16px}
-.hero {background:linear-gradient(110deg,#102a43,#125363);padding:28px 32px;border-radius:14px;color:white;margin-bottom:24px}
-.hero p {color:#cce6ec;margin-bottom:0}.hero h1 {color:white;font-size:32px;padding-top:0}
+.block-container {max-width:1250px;padding-top:4.5rem;padding-bottom:3rem}
+h1 {font-size:2rem!important;letter-spacing:-.04em}
+h2,h3 {letter-spacing:-.02em}
+[data-testid="stMetric"] {background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px}
+[data-testid="stMetricLabel"] {color:#526577}
+[data-testid="stSidebar"] {border-right:1px solid #e2e8f0}
+[data-testid="stSidebar"] .stRadio label {padding:5px 0}
+[data-testid="stExpander"] {background:#fff;border-radius:10px}
+.brand {font-size:1.2rem;font-weight:750;color:#123e47;margin-bottom:4px}
+.eyebrow {font-size:.72rem;letter-spacing:.14em;color:#527578;margin-bottom:12px}
 </style>""",
-    unsafe_allow_html=True,
-)
-st.markdown(
-    """<div class="hero"><small>KHÁM PHÁ · LÀM SẠCH · KIỂM CHỨNG</small>
-<h1>Data Prep Studio</h1><p>Hiểu dữ liệu của bạn. Kiểm soát từng thay đổi. Xuất báo cáo Plotly tương tác.</p></div>""",
     unsafe_allow_html=True,
 )
 
@@ -62,9 +64,10 @@ def set_config(config):
 
 def load_into_session(dataset):
     st.session_state.dataset = dataset
-    st.session_state.dataset_key = hashlib.sha256(
-        (dataset.name + dataset.frame.head(20).to_csv()).encode()
-    ).hexdigest()[:12]
+    for key in list(st.session_state):
+        if key.startswith(("ml_", "eda_", "roles_")):
+            st.session_state.pop(key, None)
+    st.session_state.dataset_key = uuid4().hex[:12]
     set_config(
         {
             "version": 1,
@@ -100,98 +103,12 @@ def session_profile(frame, processed=False):
     return profiles[key]
 
 
-with st.sidebar:
-    st.subheader("Không gian dữ liệu")
-    st.caption(
-        f"Xử lý tại máy đang chạy ứng dụng. Giới hạn {MAX_BYTES // (1024 * 1024)} MiB, "
-        f"{MAX_ROWS:,} dòng và {MAX_COLUMNS} cột. Khả năng xử lý phụ thuộc RAM và số cột."
-    )
-    uploaded = st.file_uploader(
-        "Chọn dữ liệu",
-        type=["csv", "tsv", "json", "jsonl", "ndjson", "xlsx", "db", "sqlite", "sqlite3", "parquet"],
-        key="source",
-    )
-    with st.expander("Cấu hình đọc dữ liệu"):
-        encoding = st.selectbox("Encoding", ["utf-8-sig", "utf-8", "cp1258", "cp1252", "latin1"])
-        delimiter_label = st.selectbox("Dấu phân cách CSV", ["Tự phát hiện", ",", ";", "Tab", "|"])
-        decimal = st.selectbox("Dấu thập phân", [".", ","])
-        missing_text = st.text_input("Ký hiệu thiếu, cách nhau bằng dấu |", placeholder="NA|N/A|null")
-        json_path = st.text_input("Nhánh JSON", placeholder="data.records")
-        sheet_name = st.text_input("Tên sheet Excel", placeholder="Để trống: sheet đầu tiên")
-        infer = st.checkbox("Nhận diện cột số khi mọi giá trị hợp lệ", value=True)
-        st.caption("Chuỗi ngày giữ nguyên đến khi bạn chọn định dạng. Mã có số 0 đầu được giữ lại.")
-    table = ""
-    if uploaded and Path(uploaded.name).suffix.lower() in (".db", ".sqlite", ".sqlite3"):
-        try:
-            tables = sqlite_tables(uploaded.getvalue())
-            if tables:
-                table = st.selectbox("Bảng SQLite", tables)
-        except DataPrepError as exc:
-            st.error(str(exc))
-    if st.button("Nạp dữ liệu", type="primary", disabled=uploaded is None, use_container_width=True):
-        try:
-            options = LoadOptions(
-                encoding=encoding,
-                delimiter=None
-                if delimiter_label == "Tự phát hiện"
-                else "\t"
-                if delimiter_label == "Tab"
-                else delimiter_label,
-                decimal=decimal,
-                missing_tokens=[s for s in missing_text.split("|") if s],
-                json_path=json_path,
-                sheet=sheet_name or 0,
-                table=table,
-                infer_numeric=infer,
-            )
-            with st.spinner("Đang đọc và kiểm tra dữ liệu…"):
-                load_into_session(load_data(uploaded.getvalue(), uploaded.name, options))
-        except (DataPrepError, OSError) as exc:
-            st.error(str(exc))
-    st.divider()
-    if st.button("Dùng dữ liệu mẫu", use_container_width=True):
-        load_into_session(load_data(ROOT / "examples" / "sales_dirty.csv"))
-        st.rerun()
-    if st.button("Đặt lại phiên làm việc", use_container_width=True):
-        for key in list(st.session_state):
-            if key not in ("source",):
-                del st.session_state[key]
-        st.rerun()
-    st.caption("Python · pandas · Plotly · Streamlit")
+def go_to(stage):
+    st.session_state.pending_stage = stage
+    st.rerun()
 
-if "dataset" not in st.session_state:
-    st.subheader("Bắt đầu từ dữ liệu của bạn")
-    left, mid, right = st.columns(3)
-    left.info("**1 · Khám phá**\n\nNạp CSV, JSON, Excel hoặc SQLite. Xem thống kê và vấn đề chất lượng.")
-    mid.info("**2 · Làm sạch**\n\nChọn từng phép biến đổi, xem trước tác động rồi áp dụng.")
-    right.info("**3 · Chia sẻ kết quả**\n\nTải dữ liệu sạch, pipeline tái sử dụng và báo cáo HTML offline.")
-    st.caption("Dữ liệu mẫu có khoảng trắng thừa, bản ghi trùng, giá trị thiếu, sai kiểu và ngoại lệ.")
-    st.stop()
 
-dataset = st.session_state.dataset
-original = dataset.frame
-config = st.session_state.config
-active_result = st.session_state.get("result")
-base_profile = session_profile(original)
-st.caption(
-    f"Nguồn: {dataset.name} · {len(original):,} dòng × {len(original.columns)} cột · Bản gốc được giữ nguyên"
-)
-metrics = st.columns(4)
-metrics[0].metric("Dòng dữ liệu", f"{len(original):,}")
-metrics[1].metric("Số cột", len(original.columns))
-metrics[2].metric("Ô thiếu", f"{base_profile['overview']['missing_cells']:,}")
-metrics[3].metric("Bản sao dư", f"{base_profile['overview']['duplicate_rows']:,}")
-if len(original) > 200_000:
-    st.info(
-        f"Bảng đang chiếm khoảng {base_profile['overview']['memory_bytes'] / 1024**2:,.0f} MiB trong RAM. "
-        "Làm sạch, học máy và xuất kết quả cần thêm bộ nhớ. Thống kê dùng toàn bộ bảng; "
-        "mọi biểu đồ dùng toàn bộ dữ liệu hợp lệ nên có thể mất thời gian với bảng lớn."
-    )
-tabs = st.tabs(
-    ["1. Dữ liệu", "2. Khám phá EDA", "3. Làm sạch", "4. So sánh", "5. Xuất kết quả", "6. Học máy"]
-)
-
-with tabs[0]:
+def render_roles():
     st.subheader("Xem trước dữ liệu gốc")
     st.dataframe(original.head(100), use_container_width=True)
     st.caption("Hiển thị tối đa 100 dòng; các thống kê sử dụng toàn bộ dữ liệu đã nạp.")
@@ -221,51 +138,78 @@ with tabs[0]:
         set_config(updated)
         st.rerun()
 
-with tabs[1]:
-    use_clean = st.checkbox("Khám phá dữ liệu đã làm sạch", disabled=active_result is None, key="eda_clean")
-    data = active_result.frame if use_clean and active_result is not None else original
-    mapping = current_roles(data, use_clean and active_result is not None)
-    profile = session_profile(data, use_clean and active_result is not None)
-    st.subheader("Chất lượng & đề xuất")
-    if profile["issues"]:
-        st.dataframe(
-            pd.DataFrame(profile["issues"]).rename(
-                columns={
-                    "column": "Cột",
-                    "kind": "Loại",
-                    "count": "Số lượng",
-                    "message": "Phát hiện",
-                    "suggestion": "Đề xuất",
-                }
-            ),
-            hide_index=True,
-            use_container_width=True,
-        )
-    else:
-        st.success("Không phát hiện vấn đề theo các quy tắc hiện có.")
-    st.plotly_chart(missing_chart(data), use_container_width=True, key="missing_chart")
-    col = st.selectbox("Cột cần phân tích", list(data.columns), key="eda_column")
-    left, right = st.columns([2, 1])
-    left.plotly_chart(distribution(data, col, mapping[col]), use_container_width=True, key="distribution")
-    column_profile = next(c for c in profile["columns"] if c["name"] == col)
-    right.json(column_profile)
-    if mapping[col] == "numeric":
-        st.plotly_chart(box_chart(data, col), use_container_width=True, key="box")
-    method = st.radio("Hệ số tương quan", ["pearson", "spearman"], horizontal=True)
-    figure = correlation_chart(data, mapping, method)
-    if figure is not None:
-        st.plotly_chart(figure, use_container_width=True, key="correlation")
-        st.caption(
-            "Tính trên toàn bộ các cặp giá trị hợp lệ, ít nhất 3 cặp. Tương quan không chứng minh nhân quả."
-        )
-    numeric = [c for c, role in mapping.items() if role == "numeric"]
-    if len(numeric) >= 2:
-        cols = st.columns(2)
-        x = cols[0].selectbox("Scatter · trục X", numeric)
-        y = cols[1].selectbox("Scatter · trục Y", [c for c in numeric if c != x])
-        st.plotly_chart(scatter_chart(data, x, y), use_container_width=True, key="scatter")
 
-with tabs[2]:
+def render_explore():
+    st.title("Hiểu dữ liệu của bạn")
+    st.caption("Thống kê trên toàn bộ bảng. Chọn một góc nhìn để giữ màn hình gọn và tập trung.")
+    use_clean = st.checkbox("Khám phá dữ liệu đã làm sạch", disabled=active_result is None, key="eda_clean")
+    processed = use_clean and active_result is not None
+    data = active_result.frame if processed else original
+    mapping = current_roles(data, processed)
+    profile = session_profile(data, processed)
+    metrics = st.columns(4)
+    metrics[0].metric("Dòng dữ liệu", f"{len(data):,}")
+    metrics[1].metric("Số cột", len(data.columns))
+    metrics[2].metric("Ô thiếu", f"{profile['overview']['missing_cells']:,}")
+    metrics[3].metric("Bản sao dư", f"{profile['overview']['duplicate_rows']:,}")
+    view = st.radio("Góc nhìn", ["Tổng quan", "Theo cột", "Mối liên hệ"], horizontal=True, key="eda_view")
+    if view == "Tổng quan":
+        st.subheader("Chất lượng dữ liệu")
+        if profile["issues"]:
+            st.dataframe(
+                pd.DataFrame(profile["issues"]).rename(
+                    columns={
+                        "column": "Cột",
+                        "kind": "Loại",
+                        "count": "Số lượng",
+                        "message": "Phát hiện",
+                        "suggestion": "Đề xuất",
+                    }
+                ),
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.success("Không phát hiện vấn đề theo các quy tắc hiện có.")
+        st.plotly_chart(missing_chart(data), use_container_width=True, key="missing_chart")
+        with st.expander("Xem bảng gốc và điều chỉnh vai trò cột"):
+            render_roles()
+    elif view == "Theo cột":
+        initial_column = next(
+            (i for i, c in enumerate(data.columns) if mapping[c] not in ("id", "ignore")), 0
+        )
+        col = st.selectbox("Cột cần phân tích", list(data.columns), index=initial_column, key="eda_column")
+        st.plotly_chart(distribution(data, col, mapping[col]), use_container_width=True, key="distribution")
+        if mapping[col] == "numeric":
+            st.plotly_chart(box_chart(data, col), use_container_width=True, key="box")
+        with st.expander("Thống kê chi tiết của cột"):
+            st.json(next(c for c in profile["columns"] if c["name"] == col))
+    else:
+        kind = st.radio("Biểu đồ", ["Tương quan", "Phân tán"], horizontal=True)
+        if kind == "Tương quan":
+            method = st.radio("Hệ số tương quan", ["pearson", "spearman"], horizontal=True)
+            figure = correlation_chart(data, mapping, method)
+            if figure is not None:
+                st.plotly_chart(figure, use_container_width=True, key="correlation")
+                st.caption("Toàn bộ cặp giá trị hợp lệ, ít nhất 3 cặp. Tương quan không chứng minh nhân quả.")
+            else:
+                st.info("Cần ít nhất hai cột có vai trò numeric để xem tương quan.")
+        else:
+            numeric = [c for c, role in mapping.items() if role == "numeric"]
+            if len(numeric) >= 2:
+                cols = st.columns(2)
+                x = cols[0].selectbox("Scatter · trục X", numeric)
+                y = cols[1].selectbox("Scatter · trục Y", [c for c in numeric if c != x])
+                st.plotly_chart(scatter_chart(data, x, y), use_container_width=True, key="scatter")
+                st.caption("Hiển thị toàn bộ cặp hợp lệ bằng WebGL; không lấy mẫu.")
+            else:
+                st.info("Cần ít nhất hai cột có vai trò numeric để vẽ phân tán.")
+    st.divider()
+    if st.button("Tiếp tục → Làm sạch", type="primary"):
+        go_to("Làm sạch")
+
+
+def render_clean():
     st.subheader("Quy trình làm sạch")
     st.caption(
         "Thực hiện theo thứ tự từ trên xuống trên bản sao. Mỗi lần xem trước đều chạy lại từ dữ liệu gốc."
@@ -407,73 +351,155 @@ with tabs[2]:
             st.session_state.pop("artifacts", None)
             st.session_state.get("profiles", {}).pop("processed", None)
             st.rerun()
+    st.divider()
+    if st.button("Tiếp tục → Kết quả"):
+        go_to("Kết quả")
 
-with tabs[3]:
-    if active_result is None:
-        st.info("Xem trước và áp dụng quy trình trong tab Làm sạch để so sánh.")
-    else:
-        before = base_profile
-        after = session_profile(active_result.frame, True)
-        st.dataframe(compare_profiles(before, after), hide_index=True, use_container_width=True)
-        st.caption(
-            "Tỷ lệ thiếu dùng tổng số ô của từng phiên bản. Xem cả số dòng/cột bị xóa khi đánh giá chất lượng."
-        )
-        comparable = [
-            c for c in original if c in active_result.frame and current_roles(original)[c] == "numeric"
-        ]
-        if comparable:
-            compare_col = st.selectbox("So sánh phân phối", comparable)
-            fig = comparison_chart(original, active_result.frame, compare_col)
-            if fig is not None:
-                st.plotly_chart(fig, use_container_width=True, key="comparison")
-        st.subheader("Vấn đề còn tồn tại")
-        if after["issues"]:
-            st.dataframe(pd.DataFrame(after["issues"]), hide_index=True, use_container_width=True)
-        else:
-            st.success("Không phát hiện vấn đề theo các quy tắc hiện có.")
 
-with tabs[4]:
-    st.subheader("Đóng gói kết quả")
-    st.write(
-        "Báo cáo HTML hoạt động offline, kèm dữ liệu CSV, pipeline, nhật ký, kiểu cột và thông tin nguồn."
-    )
-    if active_result is None:
-        st.info("Chưa áp dụng làm sạch: báo cáo sẽ sử dụng dữ liệu gốc và pipeline rỗng.")
-    st.caption("CSV không bảo toàn đầy đủ kiểu dữ liệu; schema.json lưu kiểu cột để đối chiếu.")
-    if st.button("Tạo báo cáo và gói kết quả", type="primary"):
-        try:
-            with st.spinner("Đang tạo biểu đồ và báo cáo HTML…"):
-                result = active_result or run_pipeline(
-                    original, {"version": 1, "roles": config.get("roles", {}), "steps": []}
-                )
-                html, bundle = export_bundle(original, result, dataset.name, dataset.metadata)
-                st.session_state.artifacts = {"html": html, "bundle": bundle, "result": result}
-        except (DataPrepError, ValueError) as exc:
-            st.error(str(exc))
-    if "artifacts" in st.session_state:
-        artifact = st.session_state.artifacts
-        cols = st.columns(3)
-        cols[0].download_button(
-            "Tải báo cáo HTML", artifact["html"], "report.html", "text/html", use_container_width=True
+def render_results():
+    st.title("Kiểm tra và tải kết quả")
+    view = st.radio("Nội dung kết quả", ["Tải kết quả", "So sánh trước – sau"], horizontal=True)
+    if view == "Tải kết quả":
+        st.subheader("Đóng gói kết quả")
+        st.write(
+            "Báo cáo HTML hoạt động offline, kèm dữ liệu CSV, pipeline, nhật ký, kiểu cột và thông tin nguồn."
         )
-        cols[1].download_button(
-            "Tải gói ZIP đầy đủ",
-            artifact["bundle"],
-            "data_prep_result.zip",
-            "application/zip",
-            use_container_width=True,
-        )
-        if len(artifact["result"].frame) <= 200_000:
-            cols[2].download_button(
-                "Tải dữ liệu sạch CSV",
-                artifact["result"].frame.to_csv(index=False).encode("utf-8-sig"),
-                "cleaned_data.csv",
-                "text/csv",
+        if active_result is None:
+            st.info("Chưa áp dụng làm sạch: báo cáo sẽ sử dụng dữ liệu gốc và pipeline rỗng.")
+        st.caption("CSV không bảo toàn đầy đủ kiểu dữ liệu; schema.json lưu kiểu cột để đối chiếu.")
+        if st.button("Tạo báo cáo và gói kết quả", type="primary"):
+            try:
+                with st.spinner("Đang tạo biểu đồ và báo cáo HTML…"):
+                    result = active_result or run_pipeline(
+                        original, {"version": 1, "roles": config.get("roles", {}), "steps": []}
+                    )
+                    html, bundle = export_bundle(original, result, dataset.name, dataset.metadata)
+                    st.session_state.artifacts = {"html": html, "bundle": bundle, "result": result}
+            except (DataPrepError, ValueError) as exc:
+                st.error(str(exc))
+        if "artifacts" in st.session_state:
+            artifact = st.session_state.artifacts
+            cols = st.columns(3)
+            cols[0].download_button(
+                "Tải báo cáo HTML", artifact["html"], "report.html", "text/html", use_container_width=True
+            )
+            cols[1].download_button(
+                "Tải gói ZIP đầy đủ",
+                artifact["bundle"],
+                "data_prep_result.zip",
+                "application/zip",
                 use_container_width=True,
             )
+            if len(artifact["result"].frame) <= 200_000:
+                cols[2].download_button(
+                    "Tải dữ liệu sạch CSV",
+                    artifact["result"].frame.to_csv(index=False).encode("utf-8-sig"),
+                    "cleaned_data.csv",
+                    "text/csv",
+                    use_container_width=True,
+                )
+            else:
+                cols[2].info("CSV đầy đủ nằm trong gói ZIP. Tải ZIP và giải nén để lấy cleaned_data.csv.")
+        st.download_button("Lưu pipeline đang cấu hình", dumps(config), "pipeline.json", "application/json")
+    else:
+        base_profile = session_profile(original)
+        if active_result is None:
+            st.info("Xem trước và áp dụng quy trình ở bước Làm sạch để so sánh.")
         else:
-            cols[2].info("CSV đầy đủ nằm trong gói ZIP. Tải ZIP và giải nén để lấy cleaned_data.csv.")
-    st.download_button("Lưu pipeline đang cấu hình", dumps(config), "pipeline.json", "application/json")
+            before = base_profile
+            after = session_profile(active_result.frame, True)
+            st.dataframe(compare_profiles(before, after), hide_index=True, use_container_width=True)
+            st.caption(
+                "Tỷ lệ thiếu dùng tổng số ô của từng phiên bản. Xem cả số dòng/cột bị xóa khi đánh giá chất lượng."
+            )
+            comparable = [
+                c for c in original if c in active_result.frame and current_roles(original)[c] == "numeric"
+            ]
+            if comparable:
+                compare_col = st.selectbox("So sánh phân phối", comparable)
+                fig = comparison_chart(original, active_result.frame, compare_col)
+                if fig is not None:
+                    st.plotly_chart(fig, use_container_width=True, key="comparison")
+            st.subheader("Vấn đề còn tồn tại")
+            if after["issues"]:
+                st.dataframe(pd.DataFrame(after["issues"]), hide_index=True, use_container_width=True)
+            else:
+                st.success("Không phát hiện vấn đề theo các quy tắc hiện có.")
+    st.divider()
+    if st.button("Chuẩn bị cho mô hình →"):
+        go_to("Học máy")
 
-with tabs[5]:
+
+clear_credentials()
+if "pending_stage" in st.session_state:
+    st.session_state.workspace_stage = st.session_state.pop("pending_stage")
+# Preserve source/ML choices while their widgets are hidden. Credentials are excluded.
+prefix = f"ml_{st.session_state.get('dataset_key', '')}_"
+current_stage = st.session_state.get("workspace_stage", "Nguồn dữ liệu")
+changed_stage = current_stage != st.session_state.get("_last_stage")
+st.session_state._last_stage = current_stage
+for state_key in list(st.session_state):
+    preserve_ml = (current_stage != "Học máy" or changed_stage) and state_key.startswith(prefix)
+    preserve_source = (current_stage != "Nguồn dữ liệu" or changed_stage) and (
+        state_key.startswith(("url_", "remote_name_")) or state_key in ("source_kind", "remote_member")
+    )
+    if preserve_ml or preserve_source:
+        st.session_state[state_key] = st.session_state[state_key]
+
+with st.sidebar:
+    st.markdown(
+        '<div class="brand">◈ Data Prep Studio</div><div class="eyebrow">DỮ LIỆU RÕ RÀNG HƠN</div>',
+        unsafe_allow_html=True,
+    )
+    stage = st.radio(
+        "Các bước làm việc",
+        STAGES,
+        key="workspace_stage",
+        format_func=lambda value: f"{STAGES.index(value) + 1:02d}  ·  {value}",
+    )
+    st.divider()
+    if "dataset" in st.session_state:
+        loaded = st.session_state.dataset
+        st.caption("DỮ LIỆU ĐANG LÀM VIỆC")
+        st.text(loaded.name)
+        st.caption(f"{len(loaded.frame):,} dòng · {len(loaded.frame.columns)} cột")
+        count = len(st.session_state.config["steps"])
+        st.caption(
+            f"{count} bước làm sạch · " + ("Đã áp dụng" if "result" in st.session_state else "Bản gốc")
+        )
+    else:
+        st.caption("Chưa nạp dữ liệu. Bắt đầu ở bước 01.")
+    if st.button("Đặt lại phiên làm việc", use_container_width=True):
+        discard_download()
+        for state_key in list(st.session_state):
+            del st.session_state[state_key]
+        st.rerun()
+    st.caption("v1.3 · Python · Plotly")
+
+if stage == "Nguồn dữ liệu":
+    render_source(load_into_session, go_to, ROOT)
+    st.stop()
+if "dataset" not in st.session_state:
+    st.title(stage)
+    st.info("Nạp dữ liệu để bắt đầu bước này.")
+    if st.button("Chọn nguồn dữ liệu", type="primary"):
+        go_to("Nguồn dữ liệu")
+    st.stop()
+
+dataset = st.session_state.dataset
+original = dataset.frame
+config = st.session_state.config
+active_result = st.session_state.get("result")
+st.caption(f"BƯỚC {STAGES.index(stage) + 1:02d} / 05 · {dataset.name}")
+if len(original) > 200_000:
+    st.caption("Dữ liệu lớn: biểu đồ dùng toàn bộ dữ liệu hợp lệ, thời gian xử lý phụ thuộc RAM và số cột.")
+if stage == "Khám phá":
+    render_explore()
+elif stage == "Làm sạch":
+    st.title("Làm sạch có kiểm soát")
+    render_clean()
+elif stage == "Kết quả":
+    render_results()
+else:
+    st.title("Sẵn sàng cho học máy")
     render_ml(original, current_roles(original), st.session_state.dataset_key)
